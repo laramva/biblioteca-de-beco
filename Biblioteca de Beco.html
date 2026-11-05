@@ -1,0 +1,1811 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Biblioteca de Beco</title>
+<meta name="description" content="Plataforma pessoal de leitura: acervo de não ficção e ficção inspirado no pensamento do Baka Gaijin, metas de 30 min diários, anotações e backup offline.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='2' fill='%23c6b4ff'/%3E%3Crect x='4' y='1' width='8' height='5' fill='%231b1626'/%3E%3Crect x='9' y='2' width='2' height='3' fill='%23c6b4ff'/%3E%3Crect x='3' y='9' width='10' height='5' rx='1' fill='%23efe9ff'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#13101b; --bg2:#1a1626; --panel:#211c30; --panel2:#2a2440; --inset:#17131f;
+  --line:#3d3459; --line2:#544a78;
+  --text:#efe9ff; --muted:#aca2cb; --dim:#7d7399;
+  --lav:#c6b4ff; --mint:#93e6c3; --sky:#9ec4ff; --butter:#ffe193; --pink:#ffa3c2; --peach:#ffbb8f;
+  --ink:#1b1626;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,"Lucida Console","Courier New",monospace;
+  --sans:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;min-height:100vh;color:var(--text);font:15px/1.55 var(--sans);
+  background:
+   radial-gradient(1200px 500px at 50% -120px, #3b2a5c 0%, transparent 70%),
+   radial-gradient(800px 400px at 100% 100%, #2b1f3f 0%, transparent 70%),
+   var(--bg);
+  background-attachment:fixed;}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(to bottom, rgba(255,255,255,.025) 0 1px, transparent 1px 4px);}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:18px 16px 60px}
+a{color:var(--sky)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--butter);outline-offset:2px}
+
+/* ---------- header ---------- */
+.top{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;margin-bottom:14px}
+.monitor{position:relative;width:250px;flex:none}
+.crt{background:linear-gradient(160deg,#f6b6cf,#e595b8);border:3px solid var(--ink);border-radius:22px;padding:14px;box-shadow:0 6px 0 #0008}
+.screen{background:#1e1830;border:3px solid var(--ink);border-radius:12px;padding:14px 12px;min-height:104px;
+  box-shadow:inset 0 0 26px rgba(198,180,255,.35);text-align:center;font-family:var(--mono)}
+.screen b{display:block;color:var(--lav);font-size:21px;line-height:1.05;letter-spacing:.05em;text-shadow:0 0 10px rgba(198,180,255,.6)}
+.screen small{display:block;margin-top:8px;color:var(--mint);font-size:12px;letter-spacing:.08em}
+.cursor{display:inline-block;width:8px;height:13px;background:var(--mint);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.stand{width:90px;height:16px;margin:0 auto;background:#e595b8;border:3px solid var(--ink);border-top:0;border-radius:0 0 10px 10px}
+.led{position:absolute;right:26px;bottom:24px;width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 6px var(--mint)}
+.deco{position:absolute;font-family:var(--mono)}
+.top-info h1{margin:0;font:700 28px/1.1 var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.top-info h1 span{color:var(--pink)}
+.top-info p{margin:6px 0 10px;color:var(--muted);max-width:640px}
+.sysline{display:flex;flex-wrap:wrap;gap:8px 18px;font:12.5px var(--mono);letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.sysline b{color:var(--text);font-weight:600}
+.savedot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mint);margin-right:6px;box-shadow:0 0 6px var(--mint)}
+.savedot.busy{background:var(--butter);box-shadow:0 0 6px var(--butter)}
+.savedot.err{background:#ff6b8a;box-shadow:0 0 6px #ff6b8a}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 18px;position:sticky;top:0;z-index:5;padding:8px 0;
+  background:linear-gradient(var(--bg) 70%, transparent)}
+.tab{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:2px solid var(--line);background:var(--panel);
+  border-radius:10px;font:600 12.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;color:var(--muted)}
+.tab:hover{border-color:var(--line2);color:var(--text)}
+.tab[aria-selected="true"]{background:var(--lav);color:var(--ink);border-color:var(--ink);box-shadow:0 3px 0 #0007}
+.tab svg{width:16px;height:16px;flex:none}
+
+/* ---------- windows ---------- */
+.win{background:var(--panel);border:2px solid var(--line);border-radius:var(--r);box-shadow:0 6px 0 rgba(0,0,0,.35);overflow:hidden;min-width:0}
+.bar{display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--lav);color:var(--ink);
+  font:700 12.5px var(--mono);letter-spacing:.07em;text-transform:uppercase;border-bottom:2px solid var(--ink)}
+.bar .dots{display:inline-flex;gap:5px}
+.bar .dots i{width:10px;height:10px;border-radius:50%;border:2px solid var(--ink);display:block}
+.bar .dots i:nth-child(1){background:var(--mint)}.bar .dots i:nth-child(2){background:var(--butter)}.bar .dots i:nth-child(3){background:var(--pink)}
+.bar .sp{flex:1}
+.bar .x{background:none;border:2px solid var(--ink);border-radius:6px;width:24px;height:24px;line-height:16px;cursor:pointer;color:var(--ink);font-weight:800;padding:0}
+.c-mint .bar{background:var(--mint)}.c-sky .bar{background:var(--sky)}.c-butter .bar{background:var(--butter)}
+.c-pink .bar{background:var(--pink)}.c-peach .bar{background:var(--peach)}.c-lav .bar{background:var(--lav)}
+.body{padding:14px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.span2{grid-column:1/-1}
+.muted{color:var(--muted)} .dim{color:var(--dim)}
+.mono{font-family:var(--mono)}
+.small{font-size:13px}
+h2.sec{font:700 15px var(--mono);letter-spacing:.07em;text-transform:uppercase;margin:26px 0 10px;color:var(--butter)}
+.hide{display:none!important}
+
+/* ---------- buttons/inputs ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 12px;border-radius:9px;border:2px solid var(--line2);
+  background:var(--panel2);cursor:pointer;font:600 13px var(--mono);letter-spacing:.03em}
+.btn:hover{border-color:var(--lav)}
+.btn.pri{background:var(--lav);color:var(--ink);border-color:var(--ink)}
+.btn.mint{background:var(--mint);color:var(--ink);border-color:var(--ink)}
+.btn.pink{background:var(--pink);color:var(--ink);border-color:var(--ink)}
+.btn.danger{border-color:#ff6b8a;color:#ffb3c4}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.inp,select.inp,textarea.inp{background:var(--inset);border:2px solid var(--line);border-radius:9px;padding:7px 10px;min-width:0}
+.inp:focus{border-color:var(--lav);outline:none}
+textarea.inp{width:100%;resize:vertical;line-height:1.55}
+.lined{background-image:repeating-linear-gradient(to bottom, transparent 0 25px, rgba(198,180,255,.13) 25px 26px);background-attachment:local;line-height:26px!important;padding-top:4px}
+label.f{display:grid;gap:4px;font:600 12px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+label.f .inp{font:14px var(--sans);text-transform:none;letter-spacing:0;color:var(--text)}
+
+/* ---------- boot bar ---------- */
+.boot{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;border:2px solid var(--line2);border-radius:8px;padding:4px;background:var(--inset)}
+.boot i{height:22px;border-radius:3px;background:#2c2540}
+.boot i.on{background:var(--lav);box-shadow:0 0 8px rgba(198,180,255,.45)}
+.boot i.on.f{background:var(--pink);box-shadow:0 0 8px rgba(255,163,194,.45)}
+.bootlbl{display:flex;justify-content:space-between;font:11px var(--mono);letter-spacing:.08em;color:var(--dim);margin-top:5px;text-transform:uppercase}
+.kpis{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.kpi{flex:1 1 120px;background:var(--inset);border:2px solid var(--line);border-radius:10px;padding:8px 10px}
+.kpi b{display:block;font:700 22px var(--mono)}
+.kpi span{font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- timer ---------- */
+.timer{display:grid;gap:10px}
+.cd{font:700 54px/1 var(--mono);letter-spacing:.04em;text-align:center;padding:14px 0 8px;text-shadow:0 0 16px rgba(198,180,255,.35)}
+.cd.run{color:var(--mint);text-shadow:0 0 16px rgba(147,230,195,.45)}
+.cd.done{color:var(--butter)}
+.pbar{height:10px;border-radius:6px;background:var(--inset);border:1px solid var(--line);overflow:hidden}
+.pbar > i{display:block;height:100%;background:var(--lav);width:0;transition:width .4s}
+.pbar.pink > i{background:var(--pink)} .pbar.mint > i{background:var(--mint)} .pbar.butter > i{background:var(--butter)} .pbar.sky > i{background:var(--sky)}
+.tbook{font-weight:600}
+.tline{display:flex;justify-content:space-between;gap:10px;font:12px var(--mono);color:var(--muted)}
+
+/* ---------- power mode / checklist ---------- */
+.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mode{display:grid;justify-items:center;gap:6px;padding:10px 4px;border:2px solid var(--line);border-radius:10px;background:var(--inset);cursor:pointer;font:600 11px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.mode[aria-pressed="true"]{border-color:var(--butter);color:var(--text);box-shadow:0 0 0 2px rgba(255,225,147,.25)}
+.batt{display:flex;gap:2px;padding:3px;border:2px solid var(--muted);border-radius:4px;position:relative}
+.batt::after{content:"";position:absolute;right:-6px;top:6px;width:3px;height:6px;background:var(--muted);border-radius:1px}
+.batt i{width:6px;height:12px;border-radius:1px;background:#3a3252}
+.chk{display:flex;align-items:center;gap:10px;padding:7px 4px;cursor:pointer;font:13.5px var(--mono);border-bottom:1px dashed var(--line)}
+.chk:last-child{border-bottom:0}
+.chk input{width:18px;height:18px;accent-color:var(--mint)}
+.chk.auto{cursor:default;color:var(--muted)}
+
+/* ---------- heatmap / bars ---------- */
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,13px);grid-auto-columns:13px;gap:3px;overflow-x:auto;padding-bottom:4px}
+.heat i{border-radius:3px;background:#2a2340}
+.heat i.l1{background:#4b3d78}.heat i.l2{background:#7a64c2}.heat i.l3{background:#b39dff}.heat i.l4{background:var(--mint)}
+.heat i.fut{background:transparent}
+.legend{display:flex;gap:4px;align-items:center;font:11px var(--mono);color:var(--dim);margin-top:6px}
+.legend i{width:11px;height:11px;border-radius:2px;display:inline-block}
+.bars{display:flex;align-items:flex-end;gap:3px;height:130px;border-bottom:2px solid var(--line);padding-top:6px}
+.bars .col{flex:1;display:flex;flex-direction:column-reverse;min-width:4px}
+.bars .col i{display:block;border-radius:2px 2px 0 0}
+.bars .nf{background:var(--lav)} .bars .fi{background:var(--pink)}
+
+/* ---------- books ---------- */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.toolbar .inp{flex:1 1 200px}
+.toolbar select.inp{flex:0 1 auto}
+.phase{margin:22px 0 8px;font:700 13px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--butter);display:flex;gap:10px;align-items:center}
+.phase::after{content:"";flex:1;height:2px;background:var(--line)}
+.blist{display:grid;gap:8px}
+.book{display:grid;grid-template-columns:46px 1fr auto;gap:12px;align-items:center;padding:10px 12px;background:var(--panel);border:2px solid var(--line);border-radius:12px;cursor:pointer}
+.book:hover{border-color:var(--line2);background:#251f37}
+.book.read{opacity:.78}
+.book.read .num{background:var(--mint);color:var(--ink)}
+.book.reading{border-color:var(--lav)}
+.num{width:46px;height:46px;border-radius:9px;display:grid;place-items:center;font:700 14px var(--mono);background:var(--inset);border:2px solid var(--line);color:var(--muted)}
+.bt{font-weight:650;line-height:1.3}
+.ba{font-size:13px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.chip{display:inline-block;padding:1px 8px;border-radius:20px;font:600 11px var(--mono);letter-spacing:.03em;border:1px solid var(--line2);color:var(--muted);background:var(--inset)}
+.chip.st-reading{background:var(--lav);color:var(--ink);border-color:var(--lav)}
+.chip.st-read{background:var(--mint);color:var(--ink);border-color:var(--mint)}
+.chip.st-dropped{background:#4a3a52;color:#e8c9d6}
+.chip.g-baka{background:var(--butter);color:var(--ink);border-color:var(--butter)}
+.chip.click{cursor:pointer}
+.chip.click:hover{border-color:var(--lav);color:var(--text)}
+.qa{display:flex;gap:6px;align-items:center}
+.ib{width:34px;height:34px;border-radius:9px;border:2px solid var(--line);background:var(--inset);cursor:pointer;display:grid;place-items:center;font-size:15px;color:var(--muted);padding:0}
+.ib:hover{border-color:var(--line2);color:var(--text)}
+.ib.on-fav{color:var(--pink);border-color:var(--pink)}
+.ib.on-read{color:var(--ink);background:var(--mint);border-color:var(--mint)}
+.ib.on-want{color:var(--butter);border-color:var(--butter)}
+.minibar{height:5px;border-radius:4px;background:var(--inset);margin-top:6px;overflow:hidden;max-width:260px}
+.minibar i{display:block;height:100%;background:var(--lav)}
+.stars-s{color:var(--butter);font-size:12px;letter-spacing:1px}
+.empty{padding:26px;text-align:center;color:var(--muted);border:2px dashed var(--line);border-radius:12px}
+
+/* ---------- modal ---------- */
+.mback{position:fixed;inset:0;background:rgba(8,6,14,.72);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:28px 12px;overflow-y:auto}
+.modal{width:100%;max-width:780px}
+.modal h3{margin:0 0 4px;font-size:22px;line-height:1.25}
+.modal .sub{color:var(--muted);margin-bottom:8px}
+.blk{margin-top:16px}
+.blk h4{margin:0 0 6px;font:700 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--butter)}
+.blk p{margin:0}
+.seg{display:inline-flex;flex-wrap:wrap;border:2px solid var(--line2);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--inset);padding:7px 12px;cursor:pointer;font:600 12.5px var(--mono);border-right:2px solid var(--line2);color:var(--muted)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--lav);color:var(--ink)}
+.stars{display:inline-flex;gap:2px}
+.stars button{background:none;border:0;font-size:26px;line-height:1;cursor:pointer;color:#4a4066;padding:0 2px}
+.stars button.on{color:var(--butter);text-shadow:0 0 8px rgba(255,225,147,.4)}
+.vlinks{display:grid;gap:6px;margin-top:8px}
+.vlinks a{display:flex;gap:8px;align-items:center;text-decoration:none;font:13px var(--mono);color:var(--sky)}
+.vlinks a::before{content:"▶";font-size:10px;color:var(--pink)}
+.quote{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;background:var(--inset);border-left:3px solid var(--pink);border-radius:6px;margin-bottom:6px;font-style:italic}
+.quote span{flex:1;white-space:pre-wrap}
+.savestate{font:11px var(--mono);color:var(--mint);letter-spacing:.05em}
+.pnav{display:flex;justify-content:space-between;gap:8px;margin-top:18px;padding-top:12px;border-top:2px dashed var(--line)}
+
+/* ---------- map ---------- */
+.concept .ic{font-size:22px;color:var(--butter);margin-right:6px}
+.concept h3{margin:0 0 6px;font:700 15px var(--mono);letter-spacing:.03em}
+.concept p{margin:0 0 10px;color:#ddd5f5;font-size:14.5px}
+.ctag{font:700 11px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin:8px 0 4px}
+
+/* ---------- misc ---------- */
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:50;background:var(--butter);color:var(--ink);border:2px solid var(--ink);
+  border-radius:10px;padding:9px 16px;font:700 13px var(--mono);box-shadow:0 5px 0 #0008;opacity:0;pointer-events:none;transition:opacity .25s;max-width:92vw;text-align:center}
+.toast.show{opacity:1}
+.banner{padding:10px 14px;border:2px solid var(--butter);border-radius:10px;background:#2d2738;margin-bottom:14px;font-size:14px}
+.banner.err{border-color:#ff6b8a}
+.footer{margin-top:40px;text-align:center;font:12px var(--mono);color:var(--dim);letter-spacing:.05em}
+.footer .heart{color:var(--pink)}
+.snap{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font:13px var(--mono)}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.kv:last-child{border-bottom:0}
+.kv b{font-family:var(--mono)}
+.floppy{display:inline-block;vertical-align:middle}
+ul.tight{margin:6px 0 0;padding-left:18px} ul.tight li{margin:3px 0}
+
+@media (max-width:720px){
+  .top{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .top-info p{margin-left:auto;margin-right:auto}
+  .sysline{justify-content:center}
+  .monitor{width:220px}
+  .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+  .tab{flex:none}
+  .cd{font-size:44px}
+  .book{grid-template-columns:38px 1fr;}
+  .book .qa{grid-column:1/-1;justify-content:flex-end}
+  .num{width:38px;height:38px;font-size:12px}
+}
+@media print{ body::before{display:none} .tabs,.toast{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="monitor" aria-hidden="true">
+    <div class="crt"><div class="screen"><b>BIBLIOTECA<br>DE BECO</b><small>reading system <span class="cursor"></span></small></div></div>
+    <div class="stand"></div><span class="led"></span>
+    <span class="deco" style="left:-14px;top:-8px;color:var(--mint)">♥</span>
+    <span class="deco" style="right:-10px;top:30px;color:var(--lav)">✦</span>
+    <span class="deco" style="left:-6px;bottom:30px;color:var(--pink)">✦</span>
+  </div>
+  <div class="top-info">
+    <h1>Biblioteca <span>de</span> Beco</h1>
+    <p>Um sistema de leitura de ~3 anos para entender o pensamento do <b>Baka Gaijin</b>: zen e Aristóteles, física e filosofia oriental, complexidade, dialética, tecnofeudalismo e cyberpunk. Com 30 min de não ficção e 30 min de ficção por dia.</p>
+    <div class="sysline">
+      <span>DATE: <b id="sysDate">--/--/----</b></span>
+      <span>SYSTEM TIME: <b id="sysTime">--:--</b></span>
+      <span><i class="savedot" id="saveDot"></i><b id="saveTxt">AUTO-SAVE</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" id="tabs"></nav>
+
+<div id="globalBanner"></div>
+
+<main>
+  <section id="tab-hoje" data-tab="hoje"></section>
+  <section id="tab-nf" data-tab="nf" class="hide">
+    <div class="toolbar" id="tb-nf"></div>
+    <div id="sum-nf"></div>
+    <div id="list-nf"></div>
+  </section>
+  <section id="tab-f" data-tab="f" class="hide">
+    <div class="toolbar" id="tb-f"></div>
+    <div id="sum-f"></div>
+    <div id="list-f"></div>
+  </section>
+  <section id="tab-quero" data-tab="quero" class="hide"></section>
+  <section id="tab-metas" data-tab="metas" class="hide"></section>
+  <section id="tab-mapa" data-tab="mapa" class="hide"></section>
+  <section id="tab-backup" data-tab="backup" class="hide"></section>
+</main>
+
+<div class="footer">✦ Biblioteca de Beco — funciona offline, salva sozinha neste navegador. Faça backup de vez em quando. <span class="heart">♥</span></div>
+</div>
+
+<div id="modalRoot"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* =========================================================
+   BIBLIOTECA DE BECO — acervo
+   Páginas são aproximadas (variam por edição).
+   ========================================================= */
+
+const VIDEOS = {
+  "WgN6Iu8fLlo": "SE NADA FAZ SENTIDO, É PORQUE VOCÊ NÃO ENTENDEU ISSO",
+  "XE0qRcdArnI": "PLOT TWIST: VOCÊ ERA DEUS O TEMPO TODO",
+  "w83wx46eJkQ": "SE VOCÊ PENSA ASSIM, VOCÊ NÃO ENTENDEU NADA | Filosofia de Beco",
+  "gtdYMqvoMnI": "E AGORA EU ME TORNO A MORTE | Filosofia de beco",
+  "2FihOBIiTHs": "VOCÊ NÃO VAI VENCER NA VIDA | Filosofia de beco",
+  "jAVru9n3P0w": "DEPRESSÃO E NIILISMO | Filosofia de beco",
+  "7_STcJWVXK8": "BILIONÁRIO NEM É GENTE | Filosofia de beco",
+  "KRuHng7KoYU": "O OCIDENTE NÃO TEM FUTURO",
+  "nwB_3qn3ZRo": "QUANDO O MUNDO DEIXOU DE FAZER SENTIDO?",
+  "tHef390aubY": "COMO VOCÊ AGUENTA ESSE UNIVERSO DENTRO DE VOCÊ?",
+  "nhoLxfIruKQ": "ADMITIR ISSO MUDA TUDO",
+  "N6_c3Clc_mk": "SUA ANGÚSTIA COM A SOCIEDADE VEM DAÍ",
+  "v2_Kn5Hd-n4": "O CHAT GPT NÃO VAI CHEGAR TÃO LONGE",
+  "bBHxWpbyR3w": "FÉ E O SENTIDO DA VIDA NO JAPÃO",
+  "j4Y_pAI22EE": "DINHEIRO, FELICIDADE E BUDISMO",
+  "96gLXq5BSCU": "PROCURANDO BELEZA EM SP",
+  "xzmj5p_Rxzc": "NO BRASIL, A CLASSE MÉDIA NÃO TEM FUTURO?",
+  "Eygw3r_J71Y": "QUANDO O BRASIL SE TORNOU TÃO INTANKÁVEL?",
+  "25Wzlg5See8": "SÃO PAULO É UMA DISTOPIA CYBERPUNK DO MUNDO REAL",
+  "gg0bX2JYJOY": "Esse lugar no JAPÃO saiu de uma DISTOPIA CYBERPUNK",
+  "HO0ym45U4CY": "O JAPÃO É UMA DISTOPIA CYBERPUNK DO MUNDO REAL",
+  "Q6q2Dcc072o": "POR QUE O JAPÃO É TÃO CYBERPUNK?",
+  "WZahzyQoGoc": "VOLTEI PRO JAPÃO E LEMBREI PQ TINHA IDO EMBORA (+ cyberpunk)",
+  "chxrasXceX4": "SAUDADES DE UM JAPÃO QUE EU NÃO CONHECI",
+  "OwCtU6SvdDk": "OS JAPONESES QUE VIVEM E MORREM SOZINHOS",
+  "6tWXhUIV3yI": "O JAPÃO VAI ACABAR E LEVAR O MUNDO JUNTO",
+  "ZCBbS8hNWN4": "O LADO OBSCURO DA CHINA CAPITALISTA",
+  "P5bXwvmcnCw": "RECEBI UMA PROPOSTA EM OSAKA NO JAPÃO",
+  "i8tjJRHgvpU": "O NOSSO LUGAR NA SOCIEDADE E NO UNIVERSO | Mihail",
+  "DpmO6lyyLGc": "PRECISAMOS CONVERSAR... (lançamento de Mihail)",
+  "90y9mF59LgQ": "O JAPÃO PERDEU A PACIÊNCIA COM OS ESTRANGEIROS",
+  "ZrM_zY-ihGQ": "O PROBLEMA DO BOSTIL NÃO É O BOSTILEIRO"
+};
+
+const PHASES = {
+  1: "Fundamentos — as duas premissas de realidade",
+  2: "O Oriente por dentro",
+  3: "Física, cosmos e a vidraça quebrada",
+  4: "Complexidade, vida e consciência",
+  5: "Matéria, história e dialética",
+  6: "Capitalismo tardio e o futuro cyberpunk",
+  7: "Sentido, morte e insignificância libertadora",
+  8: "Japão e Brasil — os dois lares (pode intercalar quando quiser)"
+};
+
+const GENRES = {
+  baka: "Do próprio Baka",
+  scifi: "Ficção científica",
+  cyber: "Cyberpunk",
+  horror: "Terror",
+  br: "Clássico brasileiro",
+  exist: "Existencial / russo",
+  jp: "Literatura japonesa",
+  lat: "Fantástico / ibero-americano"
+};
+
+/* ---------------- NÃO FICÇÃO (ordem sugerida) ---------------- */
+const NF = [
+// FASE 1
+{id:"nf01",ph:1,t:"Uma Breve História da Filosofia",a:"Nigel Warburton",y:2011,p:272,
+ s:"Quarenta capítulos curtos, cada um sobre um pensador, de Sócrates a Peter Singer. Escrito para quem nunca leu filosofia, com linguagem leve e exemplos do cotidiano.",
+ ag:"Te dá o mapa geral: onde ficam Platão, Aristóteles, Descartes, Espinosa, Hegel, Marx, Nietzsche e Camus. Tudo que vem depois no acervo vai se encaixar nesse mapa.",
+ c:"O Baka diz que a gente pega ‘opiniões prontas’ sem conhecer a constituição filosófica delas. Este livro é o primeiro passo para enxergar de onde vêm as ideias.",v:["w83wx46eJkQ"]},
+{id:"nf02",ph:1,t:"O Livro (The Book: On the Taboo Against Knowing Who You Are)",a:"Alan Watts",y:1966,p:176,
+ s:"Watts desmonta a sensação de sermos um ‘ego isolado’ dentro de um saco de pele, separado do universo. Mistura Vedanta, zen e ciência numa conversa direta e bem-humorada.",
+ ag:"É a base emocional de quase tudo que o Baka fala: você não veio ao mundo, veio do mundo; o universo brincando de esconde-esconde consigo mesmo.",
+ c:"O Baka conta que na adolescência ‘foi muito pelo Alan Watts’ e usava os áudios dele até para estudar inglês. A visão do mundo como ‘jogo’ do vídeo sobre o Ocidente vem daqui.",v:["2FihOBIiTHs","KRuHng7KoYU","j4Y_pAI22EE"]},
+{id:"nf03",ph:1,t:"Os Pré-Socráticos (fragmentos e doxografia)",a:"Heráclito, Parmênides, Demócrito e outros",y:-500,p:320,
+ s:"Os primeiros filósofos gregos, que só sobreviveram em fragmentos e citações. Heráclito e o ‘tudo flui’, Parmênides e o ser imóvel, Demócrito e os átomos.",
+ ag:"Você entende a primeira grande briga da filosofia: mudança x permanência. É a raiz tanto do eternalismo quanto da dialética.",
+ c:"Heráclito aparece em vários vídeos como o ocidental que ‘já tinha percebido tudo’ e que se expressava por metáforas, como os mestres orientais.",v:["w83wx46eJkQ","gtdYMqvoMnI","XE0qRcdArnI"]},
+{id:"nf04",ph:1,t:"Fédon",a:"Platão",y:-380,p:150,
+ s:"As últimas horas de Sócrates antes de beber a cicuta, conversando com os discípulos sobre a morte e a imortalidade da alma.",
+ ag:"É o texto-fonte da ideia de ‘alma imortal presa num corpo mortal’. Ler na fonte deixa claro o que exatamente o Baka critica no senso comum ocidental.",
+ c:"‘Uma alma imortal aprisionada num corpo mortal’ é a premissa que ele mais desmonta, junto com o mundo das ideias de Platão.",v:["2FihOBIiTHs","KRuHng7KoYU"]},
+{id:"nf05",ph:1,t:"Metafísica (foque nos livros I, IX e XII)",a:"Aristóteles",y:-330,p:420,
+ s:"A obra em que Aristóteles investiga o ‘ser enquanto ser’: substância, essência, ato e potência, e o primeiro motor imóvel. Denso, mas recompensador lido em partes.",
+ ag:"Você vai reconhecer de onde vem a ideia de que tudo tem uma finalidade e uma essência, e por que a escolástica cristã se apoiou nisso.",
+ c:"É o ‘outro lado’ do vídeo Aristóteles x Zen: ato e potência, a semente que vira árvore, o primeiro motor imóvel lido por Tomás de Aquino como o Deus cristão.",v:["w83wx46eJkQ","v2_Kn5Hd-n4","nhoLxfIruKQ"]},
+{id:"nf06",ph:1,t:"Tao Te Ching",a:"Lao Tsé",y:-400,p:120,
+ s:"81 poemas curtos sobre o Tao, o fluxo que não pode ser nomeado. Cada leitura revela uma camada nova.",
+ ag:"Ensina o wu wei (agir sem forçar) e a ideia de que opostos se geram mutuamente. Ótimo para reler aos poucos ao longo dos anos.",
+ c:"‘O Tao que pode ser descrito não é o verdadeiro Tao’: o Baka cita isso para explicar que a realidade última não cabe nos nossos signos.",v:["w83wx46eJkQ"]},
+{id:"nf07",ph:1,t:"O Que o Buda Ensinou",a:"Walpola Rahula",y:1959,p:176,
+ s:"Uma exposição clara e sem misticismo das Quatro Nobres Verdades, do caminho óctuplo, do não-eu (anatta) e da meditação, com textos originais em anexo.",
+ ag:"É a introdução mais honesta ao budismo como filosofia, e não como religião de templo, distinção que o próprio Baka faz.",
+ c:"Ele separa a ‘filosofia budista’ da ‘religião budista’ e usa ideias como os seis sentidos (a mente como órgão do sentido) e o Nirvana.",v:["j4Y_pAI22EE","bBHxWpbyR3w","XE0qRcdArnI"]},
+{id:"nf08",ph:1,t:"Discurso do Método",a:"René Descartes",y:1637,p:120,
+ s:"Descartes narra como decidiu duvidar de tudo e reconstruir o conhecimento com um método: dividir cada problema em partes menores.",
+ ag:"Você lê na fonte a ‘decomposição analítica’ que deu origem à ciência moderna e ao dualismo corpo x mente.",
+ c:"É o martelo que ‘quebrou a vidraça’ na metáfora dele: a fragmentação do conhecimento em especialidades começa aqui.",v:["w83wx46eJkQ","gtdYMqvoMnI","XE0qRcdArnI"]},
+{id:"nf09",ph:1,t:"O Ponto de Mutação",a:"Fritjof Capra",y:1982,p:448,
+ s:"Capra mostra como a visão mecanicista de Descartes e Newton moldou medicina, economia, psicologia e ecologia, e propõe uma visão sistêmica no lugar.",
+ ag:"Junta tudo da fase 1 numa crítica só. Depois dele você vai ver a fragmentação do conhecimento em todo lugar.",
+ c:"É praticamente o livro da metáfora da ‘vidraça quebrada’: Descartes, Newton, Adam Smith e a necessidade de ‘desfragmentar’ a visão de mundo.",v:["w83wx46eJkQ","nwB_3qn3ZRo","XE0qRcdArnI"]},
+// FASE 2
+{id:"nf10",ph:2,t:"A Via de Chuang Tzu",a:"Thomas Merton",y:1965,p:180,
+ s:"Recriações poéticas de histórias e diálogos do taoísta Chuang Tzu, feitas por um monge trapista que se apaixonou pelo pensamento dele.",
+ ag:"Mostra o taoísmo com humor e paradoxo: a utilidade do inútil, a relatividade dos pontos de vista.",
+ c:"Complementa Lao Tsé com a parte ‘prática’ que ele valoriza: fluir com a natureza em vez de confrontá-la com questionamentos.",v:["w83wx46eJkQ"]},
+{id:"nf11",ph:2,t:"Introdução ao Zen-Budismo",a:"D. T. Suzuki",y:1934,p:150,
+ s:"O livro que apresentou o zen ao Ocidente: o que é satori, para que servem os koans, por que o zen ‘não é filosofia nem religião’.",
+ ag:"Ajuda a entender por que o zen é uma filosofia ‘da prática’, de poucos textos e muitas parábolas.",
+ c:"O Baka descreve o zen como síntese da ontologia taoísta com a ética budista mahayana. Suzuki é a porta de entrada clássica para isso.",v:["w83wx46eJkQ"]},
+{id:"nf12",ph:2,t:"Mente Zen, Mente de Principiante",a:"Shunryu Suzuki",y:1970,p:160,
+ s:"Palestras curtas de um mestre zen japonês em São Francisco sobre postura, respiração e atenção, sempre voltando à ‘mente de principiante’.",
+ ag:"É o lado vivido do zen. Bom para ler devagar, um capítulo por dia, junto com a meditação.",
+ c:"Traduz em prática a ideia, repetida por ele, de que no zen você só entende de verdade colocando em prática.",v:["w83wx46eJkQ"]},
+{id:"nf13",ph:2,t:"A Essência dos Ensinamentos de Buda",a:"Thich Nhat Hanh",y:1998,p:304,
+ s:"Um mestre vietnamita explica com delicadeza os ensinamentos centrais, incluindo o ‘interser’: nada existe por si só.",
+ ag:"O conceito de interser é a chave da interdependência (sunyata) que o Baka usa o tempo todo.",
+ c:"‘O universo inteiro está contido numa folha’ e ‘o José é uma cebola sem nada no meio’ são exatamente o que Thich Nhat Hanh chama de interser.",v:["w83wx46eJkQ","N6_c3Clc_mk"]},
+{id:"nf14",ph:2,t:"Bhagavad Gita",a:"Tradição hindu (Mahabharata)",y:-200,p:200,
+ s:"O diálogo entre o guerreiro Arjuna, paralisado antes de uma batalha, e Krishna, sobre dever, ação sem apego e a natureza do Eu.",
+ ag:"É um dos textos espirituais mais influentes do mundo e mostra o hinduísmo por dentro.",
+ c:"É o poema que Oppenheimer citou (‘agora me tornei a morte’), ponto de partida do vídeo sobre física moderna e filosofias orientais.",v:["gtdYMqvoMnI","2FihOBIiTHs"]},
+{id:"nf15",ph:2,t:"O Caminho do Zen",a:"Alan Watts",y:1957,p:256,
+ s:"Watts reconstrói a história do zen, da Índia à China e ao Japão, e explica seus princípios com a clareza de quem escreve para ocidentais.",
+ ag:"Conecta budismo indiano e taoísmo chinês e mostra como viraram o zen japonês.",
+ c:"É a mesma genealogia que o Baka faz: zen (chan) como síntese de budismo e taoísmo.",v:["w83wx46eJkQ"]},
+{id:"nf16",ph:2,t:"O Livro do Chá",a:"Kakuzo Okakura",y:1906,p:112,
+ s:"Um ensaio curto e elegante sobre a cerimônia do chá como porta para o taoísmo, o zen e a estética japonesa.",
+ ag:"Mostra como a filosofia vira hábito cotidiano e cultura, sem precisar ser ‘crença’.",
+ c:"Ilustra a ideia dele de que no Japão budismo e xintoísmo estão tão enraizados que viraram costume, mesmo em quem diz não ter religião.",v:["bBHxWpbyR3w"]},
+{id:"nf17",ph:2,t:"Filosofia do Zen-Budismo",a:"Byung-Chul Han",y:2002,p:160,
+ s:"O filósofo coreano-alemão compara o zen com Hegel, Heidegger e Leibniz: vazio, morte, ausência de essência, amabilidade.",
+ ag:"É a ponte perfeita entre filosofia oriental e ocidental, exatamente o caminho que o Baka diz ter feito.",
+ c:"Ele conta que só entendeu de verdade as filosofias do Oriente quando estudou a ocidental e percebeu o próprio ‘viés de observador’. Han faz essa ponte.",v:["2FihOBIiTHs","N6_c3Clc_mk"]},
+{id:"nf18",ph:2,t:"A Sabedoria da Insegurança",a:"Alan Watts",y:1951,p:152,
+ s:"Por que a busca por segurança e certeza gera ansiedade, e por que só vivendo o presente a vida faz sentido.",
+ ag:"Remédio filosófico contra a ansiedade de ‘chegar em algum lugar’.",
+ c:"A ideia de que a vida é como música, que você não ouve esperando que acabe, é a cara deste livro.",v:["2FihOBIiTHs","jAVru9n3P0w"]},
+// FASE 3
+{id:"nf19",ph:3,t:"Cosmos",a:"Carl Sagan",y:1980,p:488,
+ s:"A viagem clássica pela história do universo e da ciência, da Biblioteca de Alexandria às estrelas.",
+ ag:"Dá a escala cósmica e a beleza da ciência, sem perder o lado humano.",
+ c:"‘Somos poeira de estrelas’ e ‘somos o universo conhecendo a si mesmo’ são frases de Sagan que o Baka repete.",v:["2FihOBIiTHs","KRuHng7KoYU","XE0qRcdArnI"]},
+{id:"nf20",ph:3,t:"Como Vejo o Mundo",a:"Albert Einstein",y:1934,p:216,
+ s:"Ensaios e cartas de Einstein sobre religião cósmica, política, educação, ciência e o sentido da vida.",
+ ag:"Mostra o físico como filósofo, e o ‘sentimento religioso cósmico’ que ele aproximava do pensamento oriental.",
+ c:"O Baka cita Einstein sobre o universo ser compreensível e sobre passado, presente e futuro serem ‘uma ilusão persistente’.",v:["gtdYMqvoMnI","2FihOBIiTHs"]},
+{id:"nf21",ph:3,t:"A Parte e o Todo",a:"Werner Heisenberg",y:1969,p:288,
+ s:"Memórias em forma de diálogos com Bohr, Einstein e Pauli sobre física, filosofia, religião e política.",
+ ag:"É o bastidor filosófico da mecânica quântica, contado por quem a criou.",
+ c:"Heisenberg e Bohr estão na lista de físicos que, segundo ele, se aproximaram das filosofias orientais.",v:["gtdYMqvoMnI","WgN6Iu8fLlo"]},
+{id:"nf22",ph:3,t:"O Que É Vida?",a:"Erwin Schrödinger",y:1944,p:192,
+ s:"Palestras em que um físico pergunta como a vida mantém ordem num universo que tende à desordem. O epílogo flerta com o Vedanta.",
+ ag:"Junta entropia, vida e consciência num texto curto que inspirou a biologia molecular.",
+ c:"Vida como ‘bolha de organização no meio do caos’ é exatamente a pergunta de Schrödinger.",v:["WgN6Iu8fLlo","w83wx46eJkQ"]},
+{id:"nf23",ph:3,t:"O Tao da Física",a:"Fritjof Capra",y:1975,p:320,
+ s:"Capra compara a física moderna (relatividade, quântica, partículas) com hinduísmo, budismo, taoísmo e zen.",
+ ag:"Organiza a intuição central do canal: a física do século XX parece descrever o mundo como as filosofias orientais.",
+ c:"Pode ser chamado de livro-tema do vídeo ‘E agora eu me torno a morte’ e do Aristóteles x Zen.",v:["gtdYMqvoMnI","w83wx46eJkQ","2FihOBIiTHs"]},
+{id:"nf24",ph:3,t:"Uma Breve História do Tempo",a:"Stephen Hawking",y:1988,p:256,
+ s:"Big Bang, buracos negros, a seta do tempo e a busca por uma teoria de tudo, explicados sem equações.",
+ ag:"Dá a base de cosmologia para entender os vídeos sobre tempo, entropia e ‘antes do Big Bang’.",
+ c:"‘Perguntar o que havia antes do Big Bang é como perguntar o que fica ao norte do polo norte’ é uma imagem de Hawking que o Baka usa. Ele também cita o princípio antrópico.",v:["w83wx46eJkQ","gtdYMqvoMnI"]},
+{id:"nf25",ph:3,t:"A Ordem do Tempo",a:"Carlo Rovelli",y:2017,p:192,
+ s:"Um físico poeta mostra que o tempo não é o que parece: não há um ‘agora’ universal, e a seta do tempo vem da entropia.",
+ ag:"Talvez o livro mais bonito sobre o tempo já escrito. Mexe com a sua percepção de passado e futuro.",
+ c:"Entropia como passagem do tempo, o ovo quebrado, o passado mais ‘organizado’: o núcleo dos vídeos ‘Você era Deus’ e ‘Se nada faz sentido’.",v:["XE0qRcdArnI","WgN6Iu8fLlo"]},
+{id:"nf26",ph:3,t:"Helgoland",a:"Carlo Rovelli",y:2020,p:208,
+ s:"A história da mecânica quântica e a interpretação relacional: as coisas só existem nas relações com outras coisas. Rovelli liga isso a Nagarjuna, o filósofo budista do vazio.",
+ ag:"Talvez o livro mais próximo da visão atual do Baka sobre a física.",
+ c:"‘A partícula não é, a partícula acontece’; ‘o objeto não existe fora das relações’; sunyata. É a interpretação relacional que ele descreve.",v:["WgN6Iu8fLlo","N6_c3Clc_mk"]},
+{id:"nf27",ph:3,t:"Pálido Ponto Azul",a:"Carl Sagan",y:1994,p:400,
+ s:"A partir da famosa foto da Terra tirada pela Voyager, Sagan reflete sobre o nosso lugar no cosmos e o futuro da humanidade no espaço.",
+ ag:"Ensina a humildade cósmica sem cair no niilismo.",
+ c:"‘Ainda somos um pálido ponto azul’ e a ‘insignificância libertadora’ são temas recorrentes nele.",v:["gtdYMqvoMnI","jAVru9n3P0w","bBHxWpbyR3w"]},
+{id:"nf28",ph:3,t:"Até o Fim do Tempo",a:"Brian Greene",y:2020,p:480,
+ s:"Do Big Bang ao fim do universo: como entropia e evolução produzem estrelas, vida, mente, linguagem, religião e arte, e o que isso diz sobre sentido.",
+ ag:"Une física, biologia e a pergunta pelo sentido da vida num só fio.",
+ c:"Mesma linha dele: consciência como etapa do universo, sentido como algo que nós criamos, nada ‘fora’ do cosmos.",v:["WgN6Iu8fLlo","jAVru9n3P0w"]},
+{id:"nf29",ph:3,t:"A Estrutura das Revoluções Científicas",a:"Thomas Kuhn",y:1962,p:264,
+ s:"Kuhn mostra que a ciência não avança em linha reta: ela vive ‘paradigmas’ que entram em crise e são substituídos.",
+ ag:"Te dá a palavra exata para o que o Baka chama de ‘mudança de paradigma’ e ajuda a entender por que velhas visões resistem.",
+ c:"O vídeo ‘O Ocidente não tem futuro’ fala de uma ciência contemporânea que questiona os próprios fundamentos. Isso é Kuhn.",v:["KRuHng7KoYU","XE0qRcdArnI"]},
+// FASE 4
+{id:"nf30",ph:4,t:"Introdução ao Pensamento Complexo",a:"Edgar Morin",y:1990,p:128,
+ s:"Morin critica o ‘paradigma da simplificação’ e propõe pensar em sistemas, recursões e contradições, ligando o que a ciência separou.",
+ ag:"Curto e denso. Dá um método para pensar como o Baka tenta pensar, conectando áreas.",
+ c:"Ele cita Edgar Morin (‘o Sol é uma explosão congelada no tempo’) e defende a teoria da complexidade.",v:["WgN6Iu8fLlo","nwB_3qn3ZRo"]},
+{id:"nf31",ph:4,t:"A Teia da Vida",a:"Fritjof Capra",y:1996,p:256,
+ s:"Uma síntese das teorias de sistemas vivos: auto-organização, autopoiese, estruturas dissipativas, Gaia e o próprio Daisyworld.",
+ ag:"Explica com clareza como a ordem emerge sozinha em sistemas complexos.",
+ c:"O ‘Mundo das Margaridas’ (Daisyworld), os atratores e os lipídios que se auto-organizam estão todos aqui.",v:["WgN6Iu8fLlo","N6_c3Clc_mk"]},
+{id:"nf32",ph:4,t:"Gaia: um novo olhar sobre a vida na Terra",a:"James Lovelock",y:1979,p:200,
+ s:"A hipótese de que a vida e o planeta formam um sistema que se autorregula. Lovelock é o cocriador do Daisyworld.",
+ ag:"Muda a forma de ver vida e planeta: não são coisas separadas.",
+ c:"‘Dizer que a Terra tem condições para a vida é como dizer que Marte tem condições para desertos’: a lógica de Gaia.",v:["WgN6Iu8fLlo","N6_c3Clc_mk"]},
+{id:"nf33",ph:4,t:"O Fim das Certezas",a:"Ilya Prigogine",y:1996,p:200,
+ s:"O Nobel de Química mostra que o tempo é irreversível, que o caos cria ordem e que a natureza não é uma máquina determinista.",
+ ag:"Contraponto científico ao demônio de Laplace e ao universo-relógio.",
+ c:"Entropia, irreversibilidade e ‘ilhas de organização’ estão no centro dos vídeos dele. Prigogine dá a ciência por trás.",v:["tHef390aubY","WgN6Iu8fLlo"]},
+{id:"nf34",ph:4,t:"O Verdadeiro Criador de Tudo",a:"Miguel Nicolelis",y:2020,p:368,
+ s:"O neurocientista brasileiro defende que o cérebro humano cria, a partir de dentro, tudo que chamamos de realidade, e que a tecnologia é extensão dele.",
+ ag:"Ponte brasileira entre neurociência, filosofia e crítica da tecnologia.",
+ c:"Ele cita Nicolelis: toda tecnologia é extensão do ser humano; o satélite somos nós espiando a Terra.",v:["XE0qRcdArnI","v2_Kn5Hd-n4"]},
+{id:"nf35",ph:4,t:"Through the Language Glass (Através do Espelho da Língua)",a:"Guy Deutscher",y:2010,p:320,
+ s:"Um linguista investiga se a língua que falamos muda como percebemos cores, espaço e tempo, com casos reais e bastante humor.",
+ ag:"Uma visão séria e sem exageros da ideia de que a linguagem molda o pensamento.",
+ c:"O exemplo das palavras para neve e a ideia de que ‘pensamos em signos’ e que a língua limita o que conseguimos pensar.",v:["XE0qRcdArnI","gtdYMqvoMnI"]},
+{id:"nf36",ph:4,t:"Gödel, Escher, Bach",a:"Douglas Hofstadter",y:1979,p:830,
+ s:"Uma obra-prima lúdica que liga a incompletude de Gödel, as gravuras de Escher e os cânones de Bach para explicar como um ‘eu’ pode surgir de loops autorreferentes.",
+ ag:"O grande desafio do acervo. Leia sem pressa: muda a forma como você pensa sobre mente, matemática e significado.",
+ c:"Espelhos refletindo espelhos, a análise da análise, Gödel e a consciência como loop de neurônios analisando a si mesmos. É o livro do vídeo do infinito.",v:["WgN6Iu8fLlo","96gLXq5BSCU"]},
+// FASE 5
+{id:"nf37",ph:5,t:"Manifesto Comunista",a:"Karl Marx e Friedrich Engels",y:1848,p:80,
+ s:"O panfleto mais influente da história moderna: luta de classes, o papel revolucionário da burguesia e o capitalismo como etapa histórica.",
+ ag:"Curto. Essencial para entender o vocabulário de metade dos debates políticos do mundo.",
+ c:"A ideia de que feudalismo, capitalismo e socialismo são etapas de um mesmo processo, e não ‘opções’, vem daqui.",v:["XE0qRcdArnI"]},
+{id:"nf38",ph:5,t:"Do Socialismo Utópico ao Socialismo Científico",a:"Friedrich Engels",y:1880,p:112,
+ s:"Engels explica de forma didática a dialética (herdada de Hegel) e o materialismo histórico.",
+ ag:"A melhor introdução curta à dialética: contradição como motor do movimento.",
+ c:"O Baka chama o zen de ‘rascunho do materialismo histórico-dialético’ e cita Hegel e Engels como exceções ao reducionismo moderno.",v:["w83wx46eJkQ","nwB_3qn3ZRo","gtdYMqvoMnI"]},
+{id:"nf39",ph:5,t:"Sapiens",a:"Yuval Noah Harari",y:2011,p:464,
+ s:"A história da humanidade em quatro revoluções: cognitiva, agrícola, da unificação e científica. Mostra como ficções compartilhadas (dinheiro, nações, religiões) organizam a sociedade.",
+ ag:"Visão panorâmica e fácil de ler. Ótima para pensar sobre signos e convenções sociais.",
+ c:"Dinheiro como signo, convenções sociais e infraestrutura moldando cultura são temas comuns aos dois.",v:["XE0qRcdArnI","HO0ym45U4CY"]},
+{id:"nf40",ph:5,t:"Dívida: os primeiros 5.000 anos",a:"David Graeber",y:2011,p:576,
+ s:"Um antropólogo desmonta o mito de que o dinheiro nasceu do escambo e mostra que dívida, moral e poder sempre andaram juntos.",
+ ag:"Muda a forma como você enxerga dinheiro, crédito e culpa.",
+ c:"‘Passar fome por falta de dinheiro é como não ir ao trabalho por falta de quilômetros’ (Watts): o dinheiro deixou de ser meio e virou fim.",v:["XE0qRcdArnI","j4Y_pAI22EE"]},
+{id:"nf41",ph:5,t:"Para Entender O Capital — Livro I",a:"David Harvey",y:2010,p:336,
+ s:"Um guia capítulo a capítulo do livro I de O Capital, escrito a partir de décadas de cursos abertos.",
+ ag:"Te dá Marx de verdade (mercadoria, valor, mais-valia) sem precisar encarar as 900 páginas originais.",
+ c:"Ele cita a teoria do valor e o contraste entre Aristóteles (valor de uso) e Marx (trabalho).",v:["gtdYMqvoMnI","WgN6Iu8fLlo"]},
+{id:"nf42",ph:5,t:"Dialética da Natureza",a:"Friedrich Engels",y:1883,p:400,
+ s:"Notas inacabadas em que Engels tenta aplicar a dialética à física, à química e à biologia do século XIX.",
+ ag:"Mostra que a ponte entre ciência natural e pensamento social, que o Baka faz, tem uma longa tradição.",
+ c:"‘Eu tenho uma fórmula e aplico em todos os níveis da realidade’: física, vida, sociedade, mente. Engels tentou exatamente isso.",v:["WgN6Iu8fLlo","tHef390aubY"]},
+{id:"nf43",ph:5,t:"O Capital no Antropoceno",a:"Kohei Saito",y:2020,p:304,
+ s:"Best-seller japonês que relê o Marx tardio para propor um ‘decrescimento comunista’ diante da crise climática.",
+ ag:"Marx atualizado, ecológico e escrito por um japonês. Une três obsessões do canal.",
+ c:"Crise do capitalismo, Japão em estagnação e ‘acúmulo infinito numa natureza finita’, frase do vídeo sobre o cyberpunk.",v:["6tWXhUIV3yI","gg0bX2JYJOY"]},
+// FASE 6
+{id:"nf44",ph:6,t:"A Sociedade do Espetáculo",a:"Guy Debord",y:1967,p:240,
+ s:"221 teses afiadas sobre uma sociedade em que as relações entre pessoas passam a ser mediadas por imagens.",
+ ag:"Dá vocabulário para criticar redes sociais, publicidade e política-espetáculo.",
+ c:"A sociedade do espetáculo aparece até numa conversa de rua em Osaka; o poder do signo sobre as pessoas é tema dos vídeos de cyberpunk.",v:["P5bXwvmcnCw","HO0ym45U4CY","WZahzyQoGoc"]},
+{id:"nf45",ph:6,t:"A Condição Pós-Moderna",a:"Jean-François Lyotard",y:1979,p:132,
+ s:"O livro que definiu a pós-modernidade como ‘incredulidade em relação às grandes narrativas’.",
+ ag:"Explica por que hoje tudo parece relativo e fragmentado.",
+ c:"Ele descreve a pós-modernidade como ‘rejeição das grandes narrativas, niilismo estrutural, microtribos’, a base da distopia cyberpunk.",v:["25Wzlg5See8","gtdYMqvoMnI"]},
+{id:"nf46",ph:6,t:"Modernidade Líquida",a:"Zygmunt Bauman",y:2000,p:284,
+ s:"Bauman descreve um mundo em que trabalho, amor, comunidade e identidade deixaram de ser sólidos.",
+ ag:"Ajuda a nomear a ansiedade de viver sem chão fixo.",
+ c:"A ‘sociedade líquida, conectada mas individualista’ do vídeo sobre a distopia cyberpunk.",v:["gg0bX2JYJOY","N6_c3Clc_mk"]},
+{id:"nf47",ph:6,t:"Realismo Capitalista",a:"Mark Fisher",y:2009,p:128,
+ s:"‘É mais fácil imaginar o fim do mundo do que o fim do capitalismo.’ Fisher liga essa sensação à depressão, à burocracia e à cultura pop.",
+ ag:"Curto e devastador. Explica o pessimismo difuso da nossa geração sem individualizar o problema.",
+ c:"Ele cita o ‘realismo capitalista’ e o ‘fim da história’ como raiz do pessimismo cínico do cyberpunk e do niilismo da classe média.",v:["gg0bX2JYJOY","xzmj5p_Rxzc","jAVru9n3P0w"]},
+{id:"nf48",ph:6,t:"Sociedade do Cansaço",a:"Byung-Chul Han",y:2010,p:128,
+ s:"Saímos da sociedade da disciplina para a do desempenho: agora quem nos explora somos nós mesmos, e o resultado é burnout e depressão.",
+ ag:"Explica a culpa de nunca estar ‘produzindo o suficiente’.",
+ c:"A vida tratada como competição, ‘candidatos à humanidade’, a meritocracia e a angústia com a sociedade.",v:["2FihOBIiTHs","N6_c3Clc_mk","jAVru9n3P0w"]},
+{id:"nf49",ph:6,t:"Tecnofeudalismo: o que matou o capitalismo",a:"Yanis Varoufakis",y:2023,p:288,
+ s:"O ex-ministro grego argumenta que as big techs viraram senhores feudais: não vendem no mercado, são donas do mercado (a ‘nuvem’) e cobram renda de todos.",
+ ag:"Atualíssimo. Muda a forma como você enxerga Amazon, Google, apps e algoritmos.",
+ c:"Ele cita Varoufakis diretamente: Bezos não é dono da fábrica, é dono do mercado; big techs como o ‘estado’ do capitalismo.",v:["XE0qRcdArnI","WZahzyQoGoc"]},
+{id:"nf50",ph:6,t:"A Era do Capitalismo de Vigilância",a:"Shoshana Zuboff",y:2019,p:800,
+ s:"Como Google e Facebook transformaram a experiência humana em dados para prever e modificar comportamentos.",
+ ag:"O estudo definitivo sobre coleta de dados e manipulação algorítmica. É longo: leia em blocos.",
+ c:"Os celulares que escutam, o algoritmo que te conhece melhor que você, os superapps. Tudo isso está no vídeo ‘Você era Deus’.",v:["XE0qRcdArnI"]},
+{id:"nf51",ph:6,t:"Survival of the Richest (A Sobrevivência dos Mais Ricos)",a:"Douglas Rushkoff",y:2022,p:224,
+ s:"Rushkoff conta quando bilionários o contrataram para saber como manter os guardas leais nos bunkers depois do ‘evento’, e analisa a mentalidade de fuga das elites tech.",
+ ag:"Mostra a ideologia por trás da fantasia de escapar do mundo em vez de consertá-lo.",
+ c:"É literalmente a reportagem que ele leu e comentou no vídeo ‘Bilionário nem é gente’.",v:["7_STcJWVXK8"]},
+// FASE 7
+{id:"nf52",ph:7,t:"Carta sobre a Felicidade (a Meneceu)",a:"Epicuro",y:-300,p:64,
+ s:"Uma carta curtíssima com o essencial do epicurismo: a morte não é nada para nós, os desejos se dividem em naturais e vãos, a felicidade é a tranquilidade.",
+ ag:"Lê em uma tarde e leva para a vida toda.",
+ c:"‘Já sabemos como é estar morto, porque já estivemos lá antes de nascer’: o argumento que ele usa sobre a morte é epicurista.",v:["bBHxWpbyR3w","jAVru9n3P0w"]},
+{id:"nf53",ph:7,t:"O Mito de Sísifo",a:"Albert Camus",y:1942,p:160,
+ s:"O ensaio sobre o absurdo: o choque entre nossa sede de sentido e o silêncio do mundo. A resposta não é desistir, é revoltar-se e viver.",
+ ag:"Mostra que reconhecer a falta de sentido intrínseco pode ser libertador, e não depressivo.",
+ c:"Ele é acusado de niilista, mas defende que ‘o quão libertador é saber que a vida não se trata de vencer’. Camus dá a forma clássica dessa ideia.",v:["jAVru9n3P0w","xzmj5p_Rxzc"]},
+{id:"nf54",ph:7,t:"Crepúsculo dos Ídolos",a:"Friedrich Nietzsche",y:1888,p:144,
+ s:"Nietzsche ‘filosofa com o martelo’ contra Sócrates, Platão, o cristianismo e a ideia de um ‘mundo verdadeiro’ por trás deste.",
+ ag:"Porta de entrada para Nietzsche, curta e afiada. Inclui ‘Como o mundo verdadeiro se tornou fábula’.",
+ c:"Outra crítica radical ao dualismo platônico-cristão (alma x corpo, mundo das ideias x mundo real), por um caminho ocidental.",v:["2FihOBIiTHs","KRuHng7KoYU"]},
+{id:"nf55",ph:7,t:"A Negação da Morte",a:"Ernest Becker",y:1973,p:368,
+ s:"Vencedor do Pulitzer: grande parte da cultura humana (religião, heroísmo, status) seria uma defesa contra o terror da morte.",
+ ag:"Ajuda a ver o medo da morte por trás de ambições, ideologias e crenças.",
+ c:"Ele diz que religiões exploram o temor da morte e contrapõe a visão budista. Becker dá a psicologia disso.",v:["bBHxWpbyR3w","7_STcJWVXK8"]},
+{id:"nf56",ph:7,t:"Ética",a:"Baruch Espinosa",y:1677,p:432,
+ s:"Escrita ‘à maneira dos geômetras’, apresenta Deus como a própria Natureza, sem vontade nem finalidade, e mostra como a alegria nasce de compreender as causas.",
+ ag:"É o ápice do acervo ocidental: a versão europeia do ‘tudo é uma coisa só’. Denso, mas transformador.",
+ c:"‘Eu gosto da ideia do Deus de Espinosa: a natureza é Deus’, numa conversa com um morador de rua em Osaka. A crítica à teleologia também é de Espinosa.",v:["P5bXwvmcnCw","jAVru9n3P0w","XE0qRcdArnI"]},
+{id:"nf57",ph:7,t:"Ikigai",a:"Héctor García e Francesc Miralles",y:2016,p:192,
+ s:"Uma leitura leve sobre longevidade e propósito a partir de Okinawa, a região mais longeva do Japão.",
+ ag:"Para respirar depois de Espinosa. Prático, com ideias de rotina e propósito.",
+ c:"Ele explica o diagrama do ikigai (o que você ama, faz bem, o mundo precisa e pagam por isso) no vídeo sobre fé no Japão.",v:["bBHxWpbyR3w"]},
+// FASE 8
+{id:"nf58",ph:8,t:"O Crisântemo e a Espada",a:"Ruth Benedict",y:1946,p:280,
+ s:"O estudo antropológico clássico sobre os padrões culturais japoneses: hierarquia, dever, vergonha, gratidão.",
+ ag:"Datado em alguns pontos, mas fundamental para entender a ‘consciência coletiva’ japonesa.",
+ c:"Shouganai, a dificuldade de ‘ler’ os japoneses, o coletivo acima do indivíduo.",v:["bBHxWpbyR3w","90y9mF59LgQ"]},
+{id:"nf59",ph:8,t:"Em Louvor da Sombra",a:"Junichiro Tanizaki",y:1933,p:80,
+ s:"Um ensaio poético sobre a beleza japonesa da penumbra, do brilho opaco e do envelhecido, contra a iluminação ocidental total.",
+ ag:"Muda a forma como você olha luz, arquitetura e objetos. Lê em dois dias.",
+ c:"A estética dele, de becos noturnos, chuva e melancolia, e o beco como ‘inconsciente da metrópole’.",v:["96gLXq5BSCU","chxrasXceX4"]},
+{id:"nf60",ph:8,t:"Fantasmas do Tsunami",a:"Richard Lloyd Parry",y:2017,p:304,
+ s:"Um jornalista que vive no Japão investiga o tsunami de 2011 a partir de uma escola onde muitas crianças morreram, e das histórias de fantasmas que surgiram depois.",
+ ag:"Japão real: luto, burocracia, silêncio e espiritualidade cotidiana.",
+ c:"Complementa os vídeos sobre isolamento, morte e o ‘lado B’ do Japão.",v:["OwCtU6SvdDk","bBHxWpbyR3w"]},
+{id:"nf61",ph:8,t:"Raízes do Brasil",a:"Sérgio Buarque de Holanda",y:1936,p:224,
+ s:"O ensaio que cunhou o ‘homem cordial’ e explica o Brasil pela herança ibérica, o personalismo e a mistura entre público e privado.",
+ ag:"Leitura obrigatória para entender o Brasil por dentro.",
+ c:"Base para os vídeos sobre o Brasil ‘intankável’ e a classe média.",v:["Eygw3r_J71Y","xzmj5p_Rxzc"]},
+{id:"nf62",ph:8,t:"O Povo Brasileiro",a:"Darcy Ribeiro",y:1995,p:480,
+ s:"A formação do povo brasileiro a partir de matrizes indígenas, africanas e europeias, e das ‘ninguendades’ que viraram um povo novo.",
+ ag:"Paixão e erudição. Dá orgulho e senso crítico ao mesmo tempo.",
+ c:"Indivíduo como produto do ambiente, colonização, desigualdade: o Brasil visto com a lente que ele aplica a tudo.",v:["2FihOBIiTHs","Eygw3r_J71Y"]},
+{id:"nf63",ph:8,t:"A Elite do Atraso",a:"Jessé Souza",y:2017,p:272,
+ s:"Jessé argumenta que o problema do Brasil é a herança da escravidão e uma elite que usa a classe média contra os mais pobres, e não a corrupção ou o ‘jeitinho’.",
+ ag:"Provoca e incomoda. Ótimo para debater e discordar.",
+ c:"‘O problema do Brasil não é o brasileiro’; coaches individualizando problemas estruturais; a classe média pessimista.",v:["xzmj5p_Rxzc","ZrM_zY-ihGQ"]},
+{id:"nf64",ph:8,t:"Por uma Outra Globalização",a:"Milton Santos",y:2000,p:176,
+ s:"O geógrafo baiano analisa a globalização como fábula, como perversidade e como possibilidade, a partir do lugar e do cotidiano.",
+ ag:"Pensamento brasileiro de nível mundial, curto e ainda muito atual.",
+ c:"Metrópole, tecnologia mal distribuída (‘o futuro já chegou, só não está bem distribuído’), São Paulo como distopia real.",v:["25Wzlg5See8","96gLXq5BSCU"]}
+];
+
+/* ---------------- FICÇÃO (ordem sugerida, alternando gêneros) ---------------- */
+const FIC = [
+{id:"f01",g:"baka",t:"Mihail",a:"Baka Gaijin",y:2024,p:200,
+ s:"O romance do próprio Baka: ficção científica cyberpunk num futuro próximo dividido entre duas grandes instituições, com boa parte da história se passando em Tóquio. Escrito, diagramado e publicado de forma independente.",
+ ag:"É o pensamento dele em forma de ficção: crise existencial, crítica social e ‘nosso lugar na sociedade e no universo’. Ler primeiro serve de lente para o resto.",
+ c:"Disponível na Amazon (digital e impresso sob demanda)."},
+{id:"f02",g:"scifi",t:"Silo",a:"Hugh Howey",y:2011,p:528,
+ s:"A humanidade vive num silo de 144 andares enterrado no chão. Lá fora o ar mata, e quem pede para sair é mandado para a ‘limpeza’. Quando o xerife toma uma decisão inesperada, uma mecânica dos andares de baixo é chamada para o cargo.",
+ ag:"Thriller viciante sobre informação, controle e o que uma sociedade conta para si mesma para continuar funcionando.",
+ c:"Signos x realidade: quem controla o que se pode saber controla o mundo."},
+{id:"f03",g:"exist",t:"Sidarta",a:"Hermann Hesse",y:1922,p:176,
+ s:"Na Índia do tempo do Buda, um jovem brâmane larga tudo para buscar a iluminação por conta própria: ascetas, prazeres, riqueza e um rio.",
+ ag:"Romance curto e luminoso sobre o fato de que sabedoria não se transmite, se vive.",
+ c:"O rio que ‘está em todo lugar ao mesmo tempo’ é Heráclito, Tao e eternalismo numa imagem só."},
+{id:"f04",g:"cyber",t:"Neuromancer",a:"William Gibson",y:1984,p:320,
+ s:"Case, um hacker que perdeu a capacidade de entrar no ciberespaço, recebe a chance de voltar em troca de um trabalho para um contratante misterioso. Começa na Chiba City de neon.",
+ ag:"O livro que inventou o cyberpunk e o próprio ‘ciberespaço’. Prosa densa e elétrica: vale persistir nos primeiros capítulos.",
+ c:"Gênero preferido do Baka. Ele cita Gibson em vários vídeos (‘o futuro já chegou, só não está bem distribuído’)."},
+{id:"f05",g:"br",t:"Memórias Póstumas de Brás Cubas",a:"Machado de Assis",y:1881,p:240,
+ s:"Um defunto resolve escrever suas memórias. Livre do medo da opinião alheia, Brás Cubas narra com ironia sua vida de privilégios e pequenas vaidades no Rio do século XIX.",
+ ag:"Uma das obras mais modernas da literatura mundial. O humor ácido de Machado sobre a elite brasileira continua atual.",
+ c:"Um narrador ‘fora’ da vida olhando para ela, e a crítica à classe dominante e ao egoísmo."},
+{id:"f06",g:"horror",t:"O Chamado de Cthulhu e Outros Contos",a:"H. P. Lovecraft",y:1928,p:256,
+ s:"Contos de horror cósmico: entidades antigas, cultos e conhecimentos que enlouquecem quem os descobre.",
+ ag:"O horror diante de um universo vasto e indiferente, que não foi feito para nós.",
+ c:"É o lado sombrio da ‘insignificância’: o mesmo cosmos que liberta na visão oriental aterroriza em Lovecraft."},
+{id:"f07",g:"scifi",t:"Duna",a:"Frank Herbert",y:1965,p:680,
+ s:"No planeta-deserto Arrakis, única fonte da especiaria mais valiosa do universo, a família Atreides assume o controle em meio a intrigas imperiais e ao povo fremen.",
+ ag:"Ecologia, religião, política, messianismo e poder num só livro. Muda a forma como você enxerga líderes carismáticos.",
+ c:"Sistemas complexos (ecologia de Arrakis), religião como tecnologia de poder, infraestrutura (água, especiaria) moldando cultura."},
+{id:"f08",g:"exist",t:"Memórias do Subsolo",a:"Fiódor Dostoiévski",y:1864,p:152,
+ s:"Um funcionário aposentado, amargo e brilhante, escreve do seu ‘subsolo’ contra o progresso, a razão e a ideia de que o ser humano busca o próprio interesse.",
+ ag:"A porta de entrada para Dostoiévski e para o existencialismo. Curto e perturbador.",
+ c:"Crítica à visão do ser humano como máquina racional, e consciência que se analisa sem parar até travar."},
+{id:"f09",g:"scifi",t:"História da Sua Vida e Outros Contos",a:"Ted Chiang",y:2002,p:336,
+ s:"Contos de ficção científica filosófica. O conto-título, que inspirou o filme A Chegada, acompanha uma linguista tentando aprender a língua de alienígenas.",
+ ag:"Talvez o melhor livro de contos de FC deste século. Cada conto é um experimento mental.",
+ c:"Linguagem moldando a percepção do tempo e passado e futuro existindo juntos: eternalismo em forma de ficção."},
+{id:"f10",g:"jp",t:"Querida Konbini",a:"Sayaka Murata",y:2016,p:152,
+ s:"Keiko, 36 anos, trabalha há 18 numa loja de conveniência e é feliz assim, mas a sociedade não aceita alguém que não segue o roteiro de casamento e carreira.",
+ ag:"Comédia estranha e afiada sobre conformidade e o que é ser ‘normal’.",
+ c:"Pressão social japonesa, konbinis, trabalho, o indivíduo diante do coletivo."},
+{id:"f11",g:"scifi",t:"Ordem (Silo, vol. 2)",a:"Hugh Howey",y:2013,p:576,
+ s:"Volta no tempo para mostrar como o mundo dos silos começou. Leia depois de Silo.",
+ ag:"Amplia a escala da história e a discussão sobre quem decide o destino de todos.",
+ c:"Elites decidindo o fim do mundo para os outros (lembra o vídeo dos bilionários e bunkers)."},
+{id:"f12",g:"br",t:"Vidas Secas",a:"Graciliano Ramos",y:1938,p:176,
+ s:"Fabiano, Sinhá Vitória, os dois filhos e a cachorra Baleia fogem da seca pelo sertão nordestino. Capítulos quase independentes, com prosa seca como a paisagem.",
+ ag:"Curto, devastador e perfeito na forma.",
+ c:"O ambiente moldando o ser humano, inclusive a linguagem: Fabiano mal tem palavras para pensar o próprio mundo."},
+{id:"f13",g:"cyber",t:"Androides Sonham com Ovelhas Elétricas?",a:"Philip K. Dick",y:1968,p:288,
+ s:"Numa Terra devastada, o caçador de recompensas Rick Deckard precisa ‘aposentar’ androides fugitivos quase indistinguíveis de humanos. Base de Blade Runner.",
+ ag:"O que nos torna humanos: empatia? memória? Muito diferente do filme e igualmente bom.",
+ c:"O Baka comenta que o livro de Dick não retrata a metrópole como o filme de Ridley Scott. Vale tirar a prova."},
+{id:"f14",g:"exist",t:"O Estrangeiro",a:"Albert Camus",y:1942,p:128,
+ s:"Meursault, um homem comum em Argel, vive sem fingir sentimentos que não tem. Isso o coloca em choque com tudo e com todos.",
+ ag:"O absurdo de Camus em forma de romance. Lê em poucos dias e fica na cabeça por anos.",
+ c:"Indiferença do universo, recusa de sentido imposto, sociedade que exige teatro."},
+{id:"f15",g:"scifi",t:"Matadouro-Cinco",a:"Kurt Vonnegut",y:1969,p:224,
+ s:"Billy Pilgrim ‘se solta no tempo’ e passa a viver momentos da vida fora de ordem: a guerra, o bombardeio de Dresden, o casamento, um planeta alienígena.",
+ ag:"Antiguerra, engraçado e triste ao mesmo tempo. Uma das grandes obras do século XX.",
+ c:"Os tralfamadorianos veem todos os momentos do tempo ao mesmo tempo: é o universo em bloco, que o Baka adora."},
+{id:"f16",g:"horror",t:"Frankenstein",a:"Mary Shelley",y:1818,p:280,
+ s:"Victor Frankenstein dá vida a uma criatura feita de partes de cadáveres e foge do que criou. A criatura, sozinha no mundo, busca respostas.",
+ ag:"O primeiro romance de ficção científica, e uma meditação sobre responsabilidade, solidão e ciência sem ética.",
+ c:"Ciência reducionista (montar a vida por partes) e a pergunta sobre o que é consciência."},
+{id:"f17",g:"scifi",t:"O Messias de Duna",a:"Frank Herbert",y:1969,p:288,
+ s:"Doze anos depois de Duna. Mais curto e mais sombrio, vira do avesso as expectativas criadas no primeiro livro. Leia só depois de Duna.",
+ ag:"Herbert escreveu este livro como alerta sobre seguir heróis. Faz Duna ganhar outra dimensão.",
+ c:"Poder, mito e o perigo dos líderes salvadores."},
+{id:"f18",g:"jp",t:"Kokoro",a:"Natsume Soseki",y:1914,p:256,
+ s:"Um estudante se aproxima de um homem mais velho, recluso e misterioso, a quem chama de Sensei. Aos poucos percebe que há um segredo no passado dele.",
+ ag:"Clássico absoluto do Japão moderno: solidão, culpa e a passagem da era Meiji.",
+ c:"A solidão japonesa e o choque entre tradição e modernidade."},
+{id:"f19",g:"scifi",t:"1984",a:"George Orwell",y:1949,p:416,
+ s:"Winston Smith trabalha reescrevendo o passado no Ministério da Verdade, sob o olhar do Grande Irmão. Até que começa a duvidar.",
+ ag:"Leitura obrigatória sobre vigilância, linguagem (novilíngua) e controle da memória.",
+ c:"Novilíngua é a ideia de que limitar as palavras limita o pensamento. Também vigilância e reescrita do passado."},
+{id:"f20",g:"br",t:"A Hora da Estrela",a:"Clarice Lispector",y:1977,p:88,
+ s:"Um narrador hesitante conta a história de Macabéa, nordestina pobre no Rio, que mal sabe que existe.",
+ ag:"Curtíssimo e imenso. Clarice no seu livro mais acessível.",
+ c:"Existir, ser percebido, insignificância. E a cidade grande engolindo quem vem de fora."},
+{id:"f21",g:"exist",t:"Crime e Castigo",a:"Fiódor Dostoiévski",y:1866,p:592,
+ s:"Raskólnikov, estudante pobre em São Petersburgo, se convence de que homens ‘extraordinários’ têm o direito de transgredir a moral. O livro acompanha o que essa ideia faz com ele.",
+ ag:"Thriller psicológico e filosófico. Um dos maiores romances já escritos.",
+ c:"O que acontece quando uma ideia abstrata atropela a realidade e o outro, e a separação entre indivíduo e coletivo."},
+{id:"f22",g:"scifi",t:"Legado (Silo, vol. 3)",a:"Hugh Howey",y:2013,p:480,
+ s:"A conclusão da trilogia do Silo.",
+ ag:"Fecha os temas de verdade, poder e esperança da série.",
+ c:"Fecha o arco sobre informação e controle."},
+{id:"f23",g:"cyber",t:"Ghost in the Shell (mangá)",a:"Masamune Shirow",y:1989,p:350,
+ s:"A Major Motoko Kusanagi, quase toda ciborgue, lidera uma unidade de segurança contra crimes digitais num Japão do futuro, onde mentes podem ser hackeadas.",
+ ag:"Filosofia da mente em quadrinhos: onde fica o ‘eu’ quando corpo e memória podem ser substituídos?",
+ c:"Um dos pilares do cyberpunk japonês citados por ele. Consciência como padrão, não como substância."},
+{id:"f24",g:"lat",t:"Ficções",a:"Jorge Luis Borges",y:1944,p:192,
+ s:"Contos-labirinto: uma biblioteca infinita, um homem que não esquece nada, mundos inventados que invadem o real.",
+ ag:"Cada conto é uma ideia filosófica disfarçada de história. Releitura garantida.",
+ c:"Infinito, recursividade, espelhos e signos que viram realidade: é o vídeo do loop infinito em forma de conto."},
+{id:"f25",g:"br",t:"O Alienista",a:"Machado de Assis",y:1882,p:96,
+ s:"O médico Simão Bacamarte funda um hospício numa pequena vila e começa a internar todos que considera loucos, em nome da ciência.",
+ ag:"Novela curta, engraçadíssima e cortante.",
+ c:"Cientificismo, poder e a pergunta sobre quem define o ‘normal’."},
+{id:"f26",g:"horror",t:"Uzumaki (mangá)",a:"Junji Ito",y:1998,p:650,
+ s:"A pequena cidade japonesa de Kurouzu-cho começa a ser tomada por uma obsessão por espirais, que aparece nas pessoas, nas coisas e no próprio tempo.",
+ ag:"Obra-prima do terror japonês, com imagens que não saem da cabeça.",
+ c:"Espirais, loops e padrões que se repetem em todas as escalas, como fractais em versão pesadelo."},
+{id:"f27",g:"scifi",t:"Os Despossuídos",a:"Ursula K. Le Guin",y:1974,p:400,
+ s:"Shevek, físico de uma lua anarquista e pobre, viaja ao planeta capitalista vizinho para terminar uma teoria sobre o tempo.",
+ ag:"Uma ‘utopia ambígua’ que compara dois sistemas sem maniqueísmo. Uma das grandes FCs políticas.",
+ c:"Física do tempo (simultaneidade x sequência) e sistemas sociais lado a lado, a ‘fórmula única’ que o Baka aplica a tudo."},
+{id:"f28",g:"jp",t:"Declínio de um Homem",a:"Osamu Dazai",y:1948,p:160,
+ s:"Os cadernos de Yozo, que desde criança se sente incapaz de entender os outros e esconde isso atrás de uma máscara de palhaço.",
+ ag:"Um dos livros mais lidos do Japão. Triste e honesto sobre alienação e depressão.",
+ c:"Isolamento, depressão e a máscara social japonesa. Leia num momento bom."},
+{id:"f29",g:"scifi",t:"Admirável Mundo Novo",a:"Aldous Huxley",y:1932,p:312,
+ s:"Num futuro de estabilidade total, pessoas são fabricadas em castas, condicionadas desde o nascimento e mantidas felizes com prazer e uma droga sem efeitos colaterais.",
+ ag:"A distopia do prazer, talvez mais parecida com o nosso mundo que 1984.",
+ c:"Controle por entretenimento e consumo, e não por medo. Lembra a sociedade do espetáculo."},
+{id:"f30",g:"cyber",t:"Count Zero",a:"William Gibson",y:1986,p:320,
+ s:"Três histórias se cruzam no mesmo universo de Neuromancer, anos depois: um hacker iniciante, uma curadora de arte e um mercenário.",
+ ag:"Mais fluido que Neuromancer, com o ciberespaço ganhando algo próximo de deuses.",
+ c:"O Baka cita uma frase deste livro no vídeo sobre os bilionários."},
+{id:"f31",g:"br",t:"Dom Casmurro",a:"Machado de Assis",y:1899,p:256,
+ s:"Bento Santiago, já velho, conta sua história com Capitu desde a adolescência. Mas dá para confiar em quem está contando?",
+ ag:"O romance brasileiro mais discutido de todos. Um estudo sobre memória e narrador não confiável.",
+ c:"A memória como reconstrução do passado, e não como registro fiel."},
+{id:"f32",g:"exist",t:"A Morte de Ivan Ilitch",a:"Liev Tolstói",y:1886,p:96,
+ s:"Um juiz bem-sucedido, que viveu ‘como se deve’, enfrenta uma doença e começa a se perguntar se viveu de verdade.",
+ ag:"Talvez a novela mais poderosa sobre a morte já escrita. Curta e definitiva.",
+ c:"A vida como corrida por status, e o que sobra no fim. É ‘Você não vai vencer na vida’ em forma de ficção."},
+{id:"f33",g:"scifi",t:"O Problema dos Três Corpos",a:"Cixin Liu",y:2006,p:320,
+ s:"Durante a Revolução Cultural chinesa, uma astrofísica é recrutada para um projeto militar secreto. Décadas depois, cientistas começam a morrer e um estranho jogo de realidade virtual aparece.",
+ ag:"FC chinesa de escala cósmica, cheia de física e história.",
+ c:"China, ciência, Guerra Fria e o lugar da humanidade no universo."},
+{id:"f34",g:"horror",t:"O Iluminado",a:"Stephen King",y:1977,p:520,
+ s:"Jack Torrance aceita ser caseiro de um hotel isolado nas montanhas durante o inverno, com a esposa e o filho, que tem um dom especial.",
+ ag:"King no auge: terror psicológico sobre vício, família e isolamento.",
+ c:"Isolamento e mente se voltando contra si mesma."},
+{id:"f35",g:"scifi",t:"Filhos de Duna",a:"Frank Herbert",y:1976,p:560,
+ s:"Arrakis está mudando, e uma nova geração herda o peso do império. Fecha a trilogia original.",
+ ag:"Mais filosófico que os anteriores, sobre a responsabilidade de enxergar o futuro.",
+ c:"Determinismo, previsão do futuro e liberdade: tema do eternalismo."},
+{id:"f36",g:"jp",t:"A Mulher das Dunas",a:"Kobo Abe",y:1962,p:240,
+ s:"Um professor e entomólogo amador vai à costa caçar insetos e passa a noite numa casa no fundo de um buraco de areia.",
+ ag:"Kafka japonês. Uma parábola inesquecível sobre liberdade e rotina.",
+ c:"Sísifo de Camus em versão japonesa: trabalho repetitivo, sentido e aceitação (shouganai)."},
+{id:"f37",g:"scifi",t:"Expiração",a:"Ted Chiang",y:2019,p:368,
+ s:"Nova coletânea de Chiang: um ser mecânico que descobre como funciona o próprio cérebro, viagem no tempo, livre-arbítrio, IA criada como bicho de estimação.",
+ ag:"Contos que deixam qualquer um pensando por dias.",
+ c:"O conto-título é literalmente sobre entropia e o fim de tudo, contado com ternura."},
+{id:"f38",g:"exist",t:"O Processo",a:"Franz Kafka",y:1925,p:272,
+ s:"Josef K. acorda e é preso sem saber por quê. O processo segue por uma burocracia infinita e absurda.",
+ ag:"O retrato definitivo da impotência diante de instituições sem rosto.",
+ c:"A identidade que depende de validações institucionais (banco, governo, app), como no exemplo do Uber no vídeo ‘Você era Deus’."},
+{id:"f39",g:"br",t:"O Cortiço",a:"Aluísio Azevedo",y:1890,p:304,
+ s:"Um cortiço no Rio de Janeiro, cheio de gente, cheiro e barulho, e o português João Romão, obcecado em enriquecer.",
+ ag:"O naturalismo brasileiro: o meio moldando as pessoas. Vivo e cheio de personagens.",
+ c:"‘Se os europeus tivessem nascido na África seriam africanos’: indivíduo como produto do ambiente."},
+{id:"f40",g:"scifi",t:"Solaris",a:"Stanisław Lem",y:1961,p:272,
+ s:"Um psicólogo chega a uma estação que orbita um planeta coberto por um oceano possivelmente consciente. Os tripulantes estão estranhos.",
+ ag:"FC filosófica sobre os limites do conhecimento e o contato com o totalmente outro.",
+ c:"Os limites da observação: conhecer algo sempre passa pelos nossos próprios signos."},
+{id:"f41",g:"horror",t:"Nas Montanhas da Loucura",a:"H. P. Lovecraft",y:1936,p:160,
+ s:"Uma expedição científica à Antártida descobre ruínas impossíveis sob o gelo.",
+ ag:"Lovecraft mais ‘científico’, com atmosfera gelada e opressiva.",
+ c:"A ciência descobrindo que a humanidade não é o centro de nada."},
+{id:"f42",g:"exist",t:"O Lobo da Estepe",a:"Hermann Hesse",y:1927,p:256,
+ s:"Harry Haller, intelectual solitário que se sente metade homem e metade lobo, é puxado para um mundo de jazz, dança e um ‘teatro mágico’.",
+ ag:"Sobre os muitos ‘eus’ dentro de uma pessoa. Hesse no seu livro mais estranho.",
+ c:"O ‘eu’ como cebola de muitas camadas, e não essência única. Também a crise do homem moderno."},
+{id:"f43",g:"scifi",t:"Fundação",a:"Isaac Asimov",y:1951,p:240,
+ s:"O matemático Hari Seldon prevê pela ‘psico-história’ a queda do Império Galáctico e cria um plano para encurtar a era de barbárie que virá.",
+ ag:"Clássico de ideias: é possível prever o comportamento de massas?",
+ c:"Sistemas complexos, previsão estatística e o limite de prever um sistema de dentro dele."},
+{id:"f44",g:"cyber",t:"Santa Clara Poltergeist",a:"Fausto Fawcett",y:1991,p:200,
+ s:"Copacabana delirante: Verinha Blumenau, uma mulher com poderes misteriosos, e uma cidade tomada por tecnologia, sexo, mutação e caos.",
+ ag:"O cyberpunk brasileiro clássico, caótico, sujo e muito carioca.",
+ c:"São Paulo e Rio mais cyberpunk que Tóquio, tese de um vídeo inteiro dele."},
+{id:"f45",g:"jp",t:"O Impiedoso País das Maravilhas e o Fim do Mundo",a:"Haruki Murakami",y:1985,p:480,
+ s:"Duas narrativas alternadas: um especialista que codifica dados com o próprio cérebro numa Tóquio quase cyberpunk, e um homem numa cidade murada onde as sombras são separadas das pessoas.",
+ ag:"Murakami no seu livro mais experimental e o mais próximo da FC.",
+ c:"Consciência, memória e um ‘eu’ que pode ser outra coisa: perfeito para quem ama Tóquio e ficção estranha."},
+{id:"f46",g:"scifi",t:"A Floresta Sombria",a:"Cixin Liu",y:2008,p:480,
+ s:"Continuação de O Problema dos Três Corpos. A humanidade se prepara para uma ameaça a séculos de distância, e um sociólogo recebe uma missão que não entende.",
+ ag:"Apresenta uma das ideias mais perturbadoras da FC sobre o silêncio do universo.",
+ c:"Lógica de sistemas aplicada a civilizações inteiras."},
+{id:"f47",g:"br",t:"A Paixão Segundo G.H.",a:"Clarice Lispector",y:1964,p:176,
+ s:"Uma escultora entra no quarto vazio da empregada que acabou de sair. Um encontro banal lá dentro desmonta tudo que ela achava ser.",
+ ag:"Experiência mística sem religião. Difícil, mas transformadora.",
+ c:"Perda do ego, matéria viva, o ‘neutro’: o mais próximo do zen na literatura brasileira."},
+{id:"f48",g:"exist",t:"Os Demônios",a:"Fiódor Dostoiévski",y:1872,p:720,
+ s:"Numa cidade de província russa, um grupo de jovens radicais, conduzido por figuras carismáticas, prepara uma conspiração.",
+ ag:"O grande romance sobre o niilismo e as ideias que viram violência.",
+ c:"Niilismo de verdade, para comparar com o ‘niilismo’ de que acusam o Baka."},
+{id:"f49",g:"cyber",t:"Ubik",a:"Philip K. Dick",y:1969,p:240,
+ s:"Num futuro em que telepatas são contratados para espionagem corporativa, uma equipe sofre um ataque e a realidade começa a se desfazer: objetos envelhecem, o tempo volta.",
+ ag:"Dick no auge da paranoia metafísica: o que é real?",
+ c:"Entropia literal (as coisas regredindo no tempo) e realidade instável."},
+{id:"f50",g:"horror",t:"Aniquilação",a:"Jeff VanderMeer",y:2014,p:208,
+ s:"Quatro mulheres sem nome entram na Área X, uma região isolada onde a natureza se comporta de forma impossível. As expedições anteriores não voltaram como foram.",
+ ag:"Horror ecológico e estranho, hipnótico.",
+ c:"Natureza que se auto-organiza de forma que a nossa linguagem não consegue descrever."},
+{id:"f51",g:"lat",t:"As Cidades Invisíveis",a:"Italo Calvino",y:1972,p:160,
+ s:"Marco Polo descreve ao imperador Kublai Khan dezenas de cidades impossíveis, cada uma uma ideia.",
+ ag:"Livro-poema para ler devagar. Muda a forma como você olha para metrópoles.",
+ c:"O flâneur, a metrópole como organismo, cidades dentro de cidades. É ‘Procurando beleza em SP’ em literatura."},
+{id:"f52",g:"scifi",t:"Fahrenheit 451",a:"Ray Bradbury",y:1953,p:216,
+ s:"Montag é bombeiro num futuro em que bombeiros queimam livros. Um encontro com uma vizinha jovem o faz duvidar.",
+ ag:"Curto e urgente, sobre por que ler importa.",
+ c:"Uma sociedade anestesiada por telas e entretenimento."},
+{id:"f53",g:"br",t:"Quincas Borba",a:"Machado de Assis",y:1891,p:288,
+ s:"Rubião, professor do interior, herda a fortuna e a filosofia do excêntrico Quincas Borba, o ‘Humanitismo’, e se muda para a corte.",
+ ag:"Machado satirizando filosofias que justificam a lei do mais forte.",
+ c:"‘Ao vencedor, as batatas’: crítica à meritocracia e ao darwinismo social."},
+{id:"f54",g:"jp",t:"O Templo do Pavilhão Dourado",a:"Yukio Mishima",y:1956,p:304,
+ s:"Inspirado num episódio real de 1950: um jovem acólito gago fica obcecado pela beleza perfeita do templo dourado de Kyoto.",
+ ag:"Prosa belíssima sobre beleza, impermanência e alienação.",
+ c:"Zen, beleza e a impermanência que o budismo ensina."},
+{id:"f55",g:"scifi",t:"Hyperion",a:"Dan Simmons",y:1989,p:560,
+ s:"Sete peregrinos viajam ao planeta Hyperion para encontrar o Picanço, uma criatura temida. No caminho, cada um conta sua história, como nos Contos da Cantuária.",
+ ag:"Space opera literária: cada história é de um gênero diferente.",
+ c:"Tempo, religião e IA. As ‘tumbas do tempo’ conversam com o eternalismo."},
+{id:"f56",g:"exist",t:"A Peste",a:"Albert Camus",y:1947,p:288,
+ s:"A cidade de Orã é tomada por uma epidemia e fechada. Um médico e outros moradores reagem cada um à sua maneira.",
+ ag:"O lado coletivo do absurdo: solidariedade sem esperança garantida.",
+ c:"Fazer o bem sem precisar de recompensa futura, e o coletivo acima do indivíduo."},
+{id:"f57",g:"cyber",t:"Mona Lisa Overdrive",a:"William Gibson",y:1988,p:320,
+ s:"Fecha a Trilogia do Sprawl: uma garota japonesa filha de um chefe da Yakuza, uma estrela de simstim, um artista recluso e o ciberespaço transformado.",
+ ag:"Gibson amarrando temas de IA, consciência e corporações.",
+ c:"Japão, Yakuza, megacorporações: cenário dos vídeos de Kabukichō e do cyberpunk."},
+{id:"f58",g:"br",t:"Não Verás País Nenhum",a:"Ignácio de Loyola Brandão",y:1981,p:400,
+ s:"Numa São Paulo do futuro, sem árvores, sem água e com um calor insuportável, um professor aposentado tenta sobreviver a um regime absurdo.",
+ ag:"A distopia brasileira clássica, ecológica e política, assustadoramente atual.",
+ c:"São Paulo como distopia real e crise ambiental do cyberpunk do século XXI."},
+{id:"f59",g:"jp",t:"Rashomon e Outros Contos",a:"Ryunosuke Akutagawa",y:1915,p:192,
+ s:"Contos do mestre do conto japonês, incluindo ‘Rashomon’ e ‘Dentro do bosque’, em que um crime é narrado por várias testemunhas que se contradizem.",
+ ag:"A verdade como ponto de vista. Curto e afiado.",
+ c:"A percepção da realidade é relativa, mas a realidade não. É o ponto do vídeo da Oppenheimer."},
+{id:"f60",g:"scifi",t:"O Fim da Infância",a:"Arthur C. Clarke",y:1953,p:240,
+ s:"Naves gigantes aparecem sobre as cidades da Terra. Os ‘Senhores Supremos’ trazem paz e prosperidade, mas se recusam a mostrar quem são.",
+ ag:"FC metafísica sobre a evolução da consciência humana.",
+ c:"A humanidade como etapa de algo maior e consciência coletiva."},
+{id:"f61",g:"horror",t:"Cemitério Maldito",a:"Stephen King",y:1983,p:424,
+ s:"Uma família se muda para uma casa no Maine, perto de uma estrada perigosa e de um cemitério de animais feito por crianças. Há algo além dele.",
+ ag:"O livro que o próprio King considera o mais assustador. Sobre luto e negação da morte.",
+ c:"A negação da morte de Becker em forma de pesadelo."},
+{id:"f62",g:"exist",t:"A Náusea",a:"Jean-Paul Sartre",y:1938,p:256,
+ s:"O diário de Antoine Roquentin, que começa a sentir uma náusea diante da simples existência das coisas, sem razão de ser.",
+ ag:"O existencialismo em romance: a existência precede a essência.",
+ c:"Sem essências, sem finalidade intrínseca. Bom para comparar a ‘náusea’ com a leveza zen."},
+{id:"f63",g:"cyber",t:"Snow Crash",a:"Neal Stephenson",y:1992,p:480,
+ s:"Hiro Protagonist, entregador de pizza da máfia e hacker, investiga uma droga que afeta usuários no Metaverso e no mundo real. Os EUA viraram franquias corporativas.",
+ ag:"Cyberpunk satírico e acelerado, que inventou o termo ‘Metaverso’.",
+ c:"Linguagem como código que programa cérebros, e corporações no lugar do Estado (tecnofeudalismo antes do nome)."},
+{id:"f64",g:"br",t:"Macunaíma",a:"Mário de Andrade",y:1928,p:224,
+ s:"O ‘herói sem nenhum caráter’ nasce na Amazônia, vai a São Paulo atrás de um amuleto e atravessa um Brasil de mitos, línguas e absurdos.",
+ ag:"Rapsódia modernista, engraçada e estranha, sobre identidade brasileira.",
+ c:"A metrópole paulista vista como máquina e o Brasil como mistura."},
+{id:"f65",g:"scifi",t:"Não Me Abandone Jamais",a:"Kazuo Ishiguro",y:2005,p:344,
+ s:"Kathy relembra a juventude em Hailsham, um internato inglês aparentemente idílico. O que os alunos são vai se revelando aos poucos.",
+ ag:"FC silenciosa e devastadora sobre aceitação, memória e o que dá valor a uma vida.",
+ c:"Aceitar o próprio destino (shouganai) e viver o processo, e não a conclusão."},
+{id:"f66",g:"exist",t:"Zen e a Arte da Manutenção de Motocicletas",a:"Robert M. Pirsig",y:1974,p:432,
+ s:"Um pai e o filho cruzam os EUA de moto. No caminho, o narrador investiga o conceito de ‘Qualidade’ e o choque entre razão clássica e romântica.",
+ ag:"Romance filosófico cult que une Ocidente e Oriente na prática.",
+ c:"A mesma busca do Baka: superar a separação sujeito x objeto e a fragmentação do pensamento ocidental."},
+{id:"f67",g:"scifi",t:"O Fim da Morte",a:"Cixin Liu",y:2010,p:720,
+ s:"Fecha a trilogia dos Três Corpos, numa escala de tempo e espaço quase inimaginável.",
+ ag:"Talvez a FC mais ambiciosa em escala cósmica já escrita.",
+ c:"Dimensões, tempo profundo e o destino do universo."},
+{id:"f68",g:"br",t:"Triste Fim de Policarpo Quaresma",a:"Lima Barreto",y:1911,p:240,
+ s:"O major Policarpo, nacionalista apaixonado e ingênuo, tenta salvar o Brasil propondo o tupi como língua oficial, a agricultura e a política.",
+ ag:"Tragicômico e amargo sobre idealismo e realidade brasileira.",
+ c:"Idealismo x realidade material, na política brasileira."},
+{id:"f69",g:"horror",t:"Histórias Extraordinárias",a:"Edgar Allan Poe",y:1845,p:300,
+ s:"Os contos clássicos de Poe: O Gato Preto, O Coração Delator, A Queda da Casa de Usher e os mistérios de Dupin.",
+ ag:"A origem do terror psicológico e do conto policial.",
+ c:"A mente como labirinto."},
+{id:"f70",g:"cyber",t:"O Homem do Castelo Alto",a:"Philip K. Dick",y:1962,p:304,
+ s:"Os EUA perderam a Segunda Guerra e foram divididos entre Japão e Alemanha. Vários personagens consultam o I Ching e circula um livro proibido.",
+ ag:"História alternativa e metafísica: qual realidade é a verdadeira?",
+ c:"Japão, taoísmo (I Ching) e realidades sobrepostas."},
+{id:"f71",g:"lat",t:"Cem Anos de Solidão",a:"Gabriel García Márquez",y:1967,p:448,
+ s:"Sete gerações da família Buendía na cidade de Macondo, entre guerras, pestes de insônia, amores e chuva que dura anos.",
+ ag:"Realismo mágico em seu ápice. Um dos maiores romances do século XX.",
+ c:"Tempo cíclico, história se repetindo: o universo que ‘se dobra sobre si mesmo’."},
+{id:"f72",g:"scifi",t:"Contato",a:"Carl Sagan",y:1985,p:432,
+ s:"A astrônoma Ellie Arroway capta um sinal vindo da estrela Vega. O mundo inteiro entra em ebulição: ciência, religião e política.",
+ ag:"O único romance de Sagan, onde ciência e espiritualidade se encontram.",
+ c:"Ciência x religião como leituras da mesma realidade, tese central do canal."},
+{id:"f73",g:"jp",t:"Kafka à Beira-Mar",a:"Haruki Murakami",y:2002,p:576,
+ s:"Um garoto de 15 anos foge de casa e um idoso que conversa com gatos parte numa jornada. Suas histórias se cruzam de forma misteriosa.",
+ ag:"Murakami clássico, com metafísica, solidão e música.",
+ c:"O inconsciente como lugar e a realidade porosa."},
+{id:"f74",g:"exist",t:"Os Irmãos Karamázov",a:"Fiódor Dostoiévski",y:1880,p:1000,
+ s:"Um pai devasso e seus filhos: o apaixonado Dmítri, o intelectual Ivan, o espiritual Aliócha. Uma história de família, fé, culpa e liberdade.",
+ ag:"O ápice de Dostoiévski. ‘O Grande Inquisidor’ é um dos capítulos mais famosos da literatura.",
+ c:"‘Se Deus não existe, tudo é permitido?’ É a pergunta que o Baka responde no vídeo sobre niilismo."},
+{id:"f75",g:"cyber",t:"Carbono Alterado",a:"Richard K. Morgan",y:2002,p:528,
+ s:"No futuro, a consciência é gravada em cartuchos e os ricos trocam de corpo como quem troca de roupa. Um ex-soldado é contratado para investigar uma morte.",
+ ag:"Cyberpunk noir e violento, com a imortalidade dos ricos como tema.",
+ c:"‘Morrer é coisa de pobre; bilionário que se preze é imortal’, dita no vídeo dos bilionários."},
+{id:"f76",g:"br",t:"Capitães da Areia",a:"Jorge Amado",y:1937,p:280,
+ s:"Um grupo de meninos de rua vive num trapiche abandonado em Salvador, entre furtos, solidariedade e sonhos.",
+ ag:"Lírico e revoltado, com personagens que ficam na memória.",
+ c:"Lembra o vídeo sobre adolescentes que vivem nas ruas do Japão. Desigualdade e coletividade."},
+{id:"f77",g:"scifi",t:"Flores para Algernon",a:"Daniel Keyes",y:1966,p:288,
+ s:"Charlie Gordon, um homem com deficiência intelectual, passa por uma cirurgia experimental que aumenta sua inteligência, já testada num rato chamado Algernon.",
+ ag:"Comovente. A forma do texto muda junto com o narrador.",
+ c:"Inteligência não é hierarquia universal de valor, como no exemplo do QI e da toupeira."},
+{id:"f78",g:"scifi",t:"Eu, Robô",a:"Isaac Asimov",y:1950,p:320,
+ s:"Contos interligados sobre robôs e as Três Leis da Robótica, contados por uma robopsicóloga.",
+ ag:"A base de toda discussão moderna sobre ética de IA.",
+ c:"IA, consciência e regras que retroagem sobre a tecnologia (infra e superestrutura)."},
+{id:"f79",g:"lat",t:"Ensaio sobre a Cegueira",a:"José Saramago",y:1995,p:312,
+ s:"Uma epidemia de cegueira branca se espalha sem explicação. Os primeiros cegos são isolados num manicômio.",
+ ag:"Duro e necessário. Saramago sobre o que resta da civilização quando ninguém vê.",
+ c:"Percepção, sociedade e o que somos quando as instituições somem."},
+{id:"f80",g:"scifi",t:"2001: Uma Odisseia no Espaço",a:"Arthur C. Clarke",y:1968,p:336,
+ s:"Um monólito misterioso aparece na pré-história e, milhões de anos depois, uma missão parte rumo a Júpiter com o computador HAL 9000.",
+ ag:"FC filosófica sobre evolução, tecnologia e transcendência.",
+ c:"A tecnologia como extensão do corpo humano, desde o primeiro osso usado como ferramenta."},
+{id:"f81",g:"exist",t:"A Metamorfose",a:"Franz Kafka",y:1915,p:96,
+ s:"Gregor Samsa acorda transformado num inseto monstruoso. A preocupação dele é: como vai chegar ao trabalho?",
+ ag:"Curtíssima e eterna, sobre trabalho, família e utilidade.",
+ c:"O valor da pessoa medido pela produtividade."},
+{id:"f82",g:"scifi",t:"Recursão",a:"Blake Crouch",y:2019,p:368,
+ s:"Um detetive investiga a ‘síndrome da falsa memória’, que faz pessoas lembrarem de vidas que não viveram, enquanto uma neurocientista desenvolve uma tecnologia para preservar memórias.",
+ ag:"Thriller rápido com ideias grandes sobre tempo e memória.",
+ c:"Memória como especulação sobre o passado, que pode mudar. É a ‘retrocausalidade’ do vídeo ‘Você era Deus’."},
+{id:"f83",g:"br",t:"São Bernardo",a:"Graciliano Ramos",y:1934,p:224,
+ s:"Paulo Honório, que subiu na vida a qualquer custo até virar dono da fazenda São Bernardo, tenta escrever a própria história.",
+ ag:"Um estudo seco e brilhante sobre como a lógica da posse invade tudo.",
+ c:"A identidade transferida para aquilo que se possui."},
+{id:"f84",g:"scifi",t:"A Revolução dos Bichos",a:"George Orwell",y:1945,p:152,
+ s:"Os animais de uma fazenda expulsam o dono e criam uma sociedade igualitária. Até que alguns ficam ‘mais iguais que os outros’.",
+ ag:"Fábula política curta, lida em um fim de semana.",
+ c:"Como ideias viram ideologia e poder."},
+{id:"f85",g:"scifi",t:"Klara e o Sol",a:"Kazuo Ishiguro",y:2021,p:304,
+ s:"Klara, uma ‘Amiga Artificial’, observa o mundo da vitrine de uma loja e depois na casa de uma adolescente doente. Ela acredita que o Sol tem poderes especiais.",
+ ag:"Delicado e triste, sobre o que significa amar e ser insubstituível.",
+ c:"IA, consciência e uma fé quase xintoísta no Sol."},
+{id:"f86",g:"horror",t:"A Estrada",a:"Cormac McCarthy",y:2006,p:240,
+ s:"Um pai e um filho atravessam um mundo devastado e cinzento rumo ao sul, carregando o pouco que têm.",
+ ag:"Pós-apocalipse duro e poético. Vencedor do Pulitzer.",
+ c:"O que sobra de valor quando o dinheiro e as instituições acabam, como no papo dos bunkers."},
+{id:"f87",g:"lat",t:"O Aleph",a:"Jorge Luis Borges",y:1949,p:208,
+ s:"Contos sobre imortais, labirintos, teólogos e um ponto no porão de uma casa em Buenos Aires que contém todos os pontos do universo.",
+ ag:"Borges ainda mais metafísico.",
+ c:"‘O universo inteiro contido em cada folha’, aqui contido num ponto."},
+{id:"f88",g:"scifi",t:"A Mão Esquerda da Escuridão",a:"Ursula K. Le Guin",y:1969,p:320,
+ s:"Um enviado humano chega a Gethen, planeta gelado onde as pessoas não têm gênero fixo, para convidá-los a uma aliança interplanetária.",
+ ag:"FC antropológica e taoísta, sobre confiança e dualidade.",
+ c:"Le Guin traduziu o Tao Te Ching: luz e sombra como ‘mão esquerda e mão direita’."},
+{id:"f89",g:"lat",t:"Livro do Desassossego",a:"Fernando Pessoa (Bernardo Soares)",y:1982,p:520,
+ s:"Fragmentos do ajudante de guarda-livros Bernardo Soares, que observa Lisboa, o tédio e a própria alma.",
+ ag:"Para ler aos pedaços, por anos. Um diário filosófico da melancolia urbana.",
+ c:"O flâneur melancólico, a cidade à noite e a nostalgia de algo que nunca se viveu."},
+{id:"f90",g:"br",t:"Grande Sertão: Veredas",a:"João Guimarães Rosa",y:1956,p:624,
+ s:"Riobaldo, ex-jagunço, conta a um ouvinte sua vida no sertão, suas guerras, seu amor e sua dúvida sobre ter feito um pacto com o diabo.",
+ ag:"A obra máxima da literatura brasileira. Difícil no começo, inesquecível depois. Final perfeito para o acervo.",
+ c:"‘O diabo na rua, no meio do redemoinho’: o sertão é do tamanho do mundo, e a travessia importa mais que a chegada."}
+];
+
+/* ---------------- MAPA DO PENSAMENTO ---------------- */
+const CONCEPTS = [
+ {t:"A vidraça quebrada",ic:"◇",
+  txt:"Por volta do século XVII, com Descartes e Newton, ‘quebramos a vidraça’ da realidade em cacos (especialidades). Cada geração herdou um caco e esqueceu que todos formavam uma só janela. Daí a sensação de que política, economia, religião e ciência não têm nada a ver uma com a outra. O método reducionista funciona muito bem, mas sistemas complexos pedem ‘desfragmentar’ a visão.",
+  b:["nf08","nf09","nf30","nf29"],v:["w83wx46eJkQ","gtdYMqvoMnI","nwB_3qn3ZRo","XE0qRcdArnI"]},
+ {t:"Duas premissas de realidade",ic:"☯",
+  txt:"Quase toda visão de mundo deriva de uma escolha: a consciência vem antes da matéria (idealismo; seu ápice é o primeiro motor imóvel de Aristóteles, que a escolástica tornou o Deus cristão) ou a matéria vem antes da consciência (materialismo; o Baka vê no zen e no yin-yang um ‘rascunho’ do materialismo dialético). Sem saber disso, montamos opiniões contraditórias, como quem cria um personagem de videogame com peças soltas.",
+  b:["nf05","nf06","nf03","nf38"],v:["w83wx46eJkQ","gtdYMqvoMnI"]},
+ {t:"Você não veio ao mundo, veio do mundo",ic:"✶",
+  txt:"Ideia tirada de Alan Watts: não somos almas colocadas aqui dentro, somos uma etapa do universo. Os átomos do seu corpo existem desde o Big Bang e já foram estrelas (Sagan). O ‘ego isolado’ do senso comum ocidental gera angústia e competição. A lógica colonial, por exemplo, nasce de separar o indivíduo do ambiente.",
+  b:["nf02","nf19","nf04"],v:["2FihOBIiTHs","KRuHng7KoYU"]},
+ {t:"Máquina, organismo ou jogo",ic:"⚙",
+  txt:"Três alegorias de visão de mundo: o universo-máquina, feito por um engenheiro que nos deu um manual (o senso comum ocidental); o universo-organismo, do qual somos frutos, como uma árvore (budismo, taoísmo); e o universo-jogo, em que Deus brinca de ser cada um de nós e esquece que está atuando (Vedanta). A ciência contemporânea vem ‘puxando o ser humano de volta para dentro da natureza’.",
+  b:["nf02","nf14","nf29"],v:["KRuHng7KoYU","XE0qRcdArnI","WgN6Iu8fLlo"]},
+ {t:"Vacuidade e interdependência",ic:"◎",
+  txt:"Sunyata: as coisas são vazias de essência e só existem em relação umas às outras. O José é uma cebola sem nada no meio, uma folha contém o universo inteiro, quente só existe em relação ao frio. A liquidez da água não está no hidrogênio nem no oxigênio, ela emerge da relação entre os dois.",
+  b:["nf13","nf07","nf11","nf26"],v:["w83wx46eJkQ","N6_c3Clc_mk"]},
+ {t:"O observador faz parte da realidade",ic:"◉",
+  txt:"Para existir um arco-íris é preciso sol, chuva e um olho no ângulo certo. A física moderna trouxe o observador para dentro da equação. Para o Baka, isso não tem nada de ‘coach quântico’ (o colapso é aleatório): toda medição é uma interação, e a partícula ‘não é, acontece’. É um nó numa teia de relações, e a medição é um dos fios.",
+  b:["nf23","nf26","nf21","nf20"],v:["gtdYMqvoMnI","XE0qRcdArnI","WgN6Iu8fLlo"]},
+ {t:"O tempo não passa",ic:"⧗",
+  txt:"Eternalismo, ou universo em bloco: passado e futuro existem agora, como o Japão existe agora mesmo sem você vê-lo. Lembramos do passado e não do futuro por causa da entropia (o ovo quebrado). Os dinossauros ‘estão lá’ em outro ponto do bloco. Ele brinca com a retrocausalidade e com a frase de Einstein de que a distinção entre passado, presente e futuro é ‘uma ilusão persistente’.",
+  b:["nf25","nf24","nf28","f15","f09"],v:["XE0qRcdArnI","WgN6Iu8fLlo","tHef390aubY"]},
+ {t:"Loops, espelhos e Gödel",ic:"∞",
+  txt:"Um espelho diante de outro é um loop infinito. Conhecer é interagir, então uma análise completa teria de analisar a si mesma, sem fim (Gödel: há limites para conhecer um sistema de dentro dele). A consciência pode ser neurônios analisando o próprio processo de análise. Daí a ilusão de um ‘eu’ fora do corpo.",
+  b:["nf36","nf33"],v:["WgN6Iu8fLlo","96gLXq5BSCU","tHef390aubY"]},
+ {t:"Complexidade e emergência",ic:"✿",
+  txt:"Fractais, atratores, auto-organização. No Daisyworld (o Mundo das Margaridas), flores brancas e pretas mantêm a temperatura do planeta estável. O Sol é ‘uma explosão congelada no tempo’ (Morin): a gravidade produz a fusão, que produz a gravidade. A vida é uma ‘bolha de organização no meio do caos’, um redemoinho no rio.",
+  b:["nf30","nf31","nf32","nf33","nf22"],v:["WgN6Iu8fLlo","N6_c3Clc_mk","nwB_3qn3ZRo"]},
+ {t:"Infraestrutura ⇄ superestrutura",ic:"⇅",
+  txt:"Marx distingue a base material (tecnologia, trabalho) da ideológica (leis, cultura, religião). Para o Baka, uma não vem antes da outra: a IA (infra) gera novas leis (super), que retroagem sobre as próximas IAs. A sociedade, como a partícula e o Sol, não é coisa, é evento. A imagem que ele usa é a da água que molda a bexiga enquanto a bexiga molda a água. Liberdade é ‘palavra forte’; o que existe é criatividade dentro de limites.",
+  b:["nf37","nf38","nf41","nf42"],v:["WgN6Iu8fLlo","gtdYMqvoMnI"]},
+ {t:"O dedo não é a lua",ic:"☾",
+  txt:"Os signos (palavras, números, dinheiro, leis) representam a realidade, mas não são a realidade. Pensamos em signos, e uma língua sem palavra para algo dificulta pensar nesse algo. No capitalismo o dinheiro, que é signo, passa a valer mais que as coisas: passar fome por falta de dinheiro é como não ir ao trabalho por ‘falta de quilômetros’ (Watts).",
+  b:["nf35","nf40","nf39","f19"],v:["XE0qRcdArnI"]},
+ {t:"Capitalismo como etapa e tecnofeudalismo",ic:"⌘",
+  txt:"Feudalismo, capitalismo e socialismo não são ‘opções’ para comparar, são etapas de um mesmo processo movido pelas próprias contradições. Hoje as big techs viraram o ‘Estado’ do capitalismo: são donas do próprio mercado (Varoufakis) e conhecem você melhor que você. Esquerda e direita seriam signos binários pequenos demais para uma realidade contínua.",
+  b:["nf49","nf50","nf43","nf37"],v:["XE0qRcdArnI","ZCBbS8hNWN4","6tWXhUIV3yI"]},
+ {t:"Realismo capitalista e distopia pós-moderna",ic:"▣",
+  txt:"Depois do fim da Guerra Fria veio a ‘hegemonia liberal’ e a sensação de fim da história. O cyberpunk é a estética disso: pessimismo cínico, ‘o mundo é uma merda e nada pode ser feito’, microtribos no lugar de grandes narrativas, o futuro que já chegou mas está mal distribuído. Para ele, São Paulo é mais cyberpunk que Tóquio.",
+  b:["nf47","nf45","nf46","nf44","f04"],v:["gg0bX2JYJOY","25Wzlg5See8","HO0ym45U4CY","Q6q2Dcc072o"]},
+ {t:"A vida é música, não corrida",ic:"♫",
+  txt:"Se a recompensa estivesse no fim, a melhor vida seria a mais curta. Tratamos crianças como ‘candidatas à humanidade’, como se houvesse um lugar a chegar. A vida não tem finalidade intrínseca (teleologia é um viés do cérebro), e isso não leva ao vale-tudo: é ‘maravilhoso ser insignificante’. Somos minúsculos e gigantes ao mesmo tempo.",
+  b:["nf18","nf53","nf48","nf56","f32"],v:["2FihOBIiTHs","jAVru9n3P0w","xzmj5p_Rxzc"]},
+ {t:"A morte que já conhecemos",ic:"✝",
+  txt:"Já sabemos como é estar morto: passamos bilhões de anos assim antes de nascer. Para o Baka, o Nirvana budista se parece com o que a ciência diz da morte, o fim dos sentidos e da aflição. Encarar a morte como fim faz dar valor ao agora, mas pode gerar urgência; o budismo equilibra isso com a coletividade.",
+  b:["nf52","nf55","nf07","f32"],v:["bBHxWpbyR3w","gtdYMqvoMnI"]},
+ {t:"Japão: coletivo, shouganai e solidão",ic:"⛩",
+  txt:"Mais de 80% dos japoneses seguem rituais xintoístas e mais de 60% dizem não ter religião: a filosofia virou costume. Shouganai é aceitar o que não tem jeito. A consciência coletiva diz que fazer mal ao outro é fazer mal a si mesmo. Do outro lado ficam a pressão, o isolamento, quem morre sozinho, a decadência econômica e demográfica.",
+  b:["nf58","nf57","nf60","f10","f36"],v:["bBHxWpbyR3w","OwCtU6SvdDk","6tWXhUIV3yI"]},
+ {t:"Tecnologia como extensão do corpo",ic:"⌖",
+  txt:"Toda tecnologia é extensão humana (Nicolelis). O carro tem volante e pedais porque temos braços e pernas, e o satélite somos nós espiando a Terra. Por isso a IA não ‘emerge sozinha’ como consciência: o Windows não brota do processador.",
+  b:["nf34","f80","f78"],v:["XE0qRcdArnI","v2_Kn5Hd-n4"]},
+ {t:"Nostalgia do que nunca se viveu",ic:"☂",
+  txt:"Becos à noite, chuva, neon: uma ‘saudade de um Japão que eu não conheci’. A metrópole como organismo, o beco como ‘inconsciente da metrópole’, o flâneur que só observa. É a estética que atravessa vídeos e fotos dele.",
+  b:["nf59","f51","f89"],v:["chxrasXceX4","96gLXq5BSCU"]}
+];
+
+</script>
+<script>
+"use strict";
+/* =================== utilidades =================== */
+const KEY = "bibliotecaDeBeco.v1";
+const SNAPKEY = "bibliotecaDeBeco.snapshots";
+const UIKEY = "bibliotecaDeBeco.ui";
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2, "0");
+function dk(d){ d = d || new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function parseDk(s){ const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); }
+function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+function fmtDate(s){ if(!s) return "—"; const d = parseDk(s); return pad(d.getDate())+"/"+pad(d.getMonth()+1)+"/"+d.getFullYear(); }
+function fmtMMSS(s){ s = Math.max(0, Math.round(s)); return pad(Math.floor(s/60))+":"+pad(s%60); }
+function fmtHM(secs){ const m = Math.round((secs||0)/60); const h = Math.floor(m/60); return h ? h+"h "+pad(m%60)+"min" : m+" min"; }
+function fmtYear(y){ return y < 0 ? "c. "+Math.abs(y)+" a.C." : String(y); }
+function nf(n){ return Number(n||0).toLocaleString("pt-BR"); }
+let toastT = null;
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
+
+/* =================== catálogo =================== */
+const CAT = NF.map((b,i) => Object.assign({type:"nf", n:i+1}, b)).concat(FIC.map((b,i) => Object.assign({type:"f", n:i+1}, b)));
+const BY = {}; CAT.forEach(b => BY[b.id] = b);
+const STATUS = {none:"Na fila", reading:"Lendo", read:"Lido", dropped:"Pausado"};
+const EMPTY = Object.freeze({status:"none",rating:0,fav:false,want:false,notes:"",quotes:[],page:0,started:null,finished:null,secs:0});
+const CONCEPT_OF = {}; CONCEPTS.forEach((c,i) => c.b.forEach(id => (CONCEPT_OF[id] = CONCEPT_OF[id] || []).push(i)));
+
+/* =================== estado =================== */
+function defaults(){
+  return {v:1, created:Date.now(), lastSaved:null, lastExport:null,
+    settings:{goalNF:30, goalF:30, ppNF:15, ppF:25, yearGoal:30, sound:true},
+    books:{}, custom:[], log:{}, journal:{},
+    timer:{nf:{acc:0,start:null}, f:{acc:0,start:null}, sel:{nf:null,f:null}}};
+}
+function migrate(s){
+  const d = defaults();
+  if(!s || typeof s !== "object") return d;
+  s.settings = Object.assign(d.settings, s.settings || {});
+  ["books","log","journal"].forEach(k => { if(!s[k] || typeof s[k] !== "object" || Array.isArray(s[k])) s[k] = {}; });
+  if(!Array.isArray(s.custom)) s.custom = [];
+  s.timer = s.timer && typeof s.timer === "object" ? s.timer : d.timer;
+  s.timer.nf = Object.assign({acc:0,start:null}, s.timer.nf || {});
+  s.timer.f = Object.assign({acc:0,start:null}, s.timer.f || {});
+  s.timer.sel = Object.assign({nf:null,f:null}, s.timer.sel || {});
+  Object.keys(s.books).forEach(id => { s.books[id] = Object.assign({}, EMPTY, s.books[id]); if(!Array.isArray(s.books[id].quotes)) s.books[id].quotes = []; });
+  s.v = 1;
+  return s;
+}
+let storageOK = true;
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw) return migrate(JSON.parse(raw));
+  }catch(e){ storageOK = false; }
+  return defaults();
+}
+let S = load();
+
+/* ---- IndexedDB (espelho do estado + handle do arquivo de backup) ---- */
+let dbP = null;
+function idb(){
+  if(!dbP) dbP = new Promise((res, rej) => {
+    try{
+      const r = indexedDB.open("bibliotecaDeBeco", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    }catch(e){ rej(e); }
+  });
+  return dbP;
+}
+async function idbGet(k){ const db = await idb(); return new Promise((res, rej) => { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function idbSet(k, v){ const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction("kv","readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+
+/* ---- salvar ---- */
+let saveT = null, lastSaveOk = true;
+function save(now){
+  clearTimeout(saveT);
+  setSaveUI("busy");
+  if(now) doSave(); else saveT = setTimeout(doSave, 250);
+}
+function doSave(){
+  S.lastSaved = Date.now();
+  const json = JSON.stringify(S);
+  try{ localStorage.setItem(KEY, json); storageOK = true; lastSaveOk = true; snapshotDaily(json); }
+  catch(e){ storageOK = false; lastSaveOk = false; }
+  idbSet("state", json).catch(() => {});
+  setSaveUI(lastSaveOk ? "ok" : "err");
+  queueFileBackup();
+  const ns = document.getElementById("noteState"); if(ns) ns.textContent = "salvo ✓ "+new Date().toLocaleTimeString("pt-BR");
+  const js = document.getElementById("journalState"); if(js) js.textContent = "salvo ✓";
+}
+function setSaveUI(st){
+  const d = $("#saveDot"), t = $("#saveTxt");
+  d.className = "savedot" + (st === "busy" ? " busy" : st === "err" ? " err" : "");
+  if(st === "busy") t.textContent = "SALVANDO…";
+  else if(st === "err") t.textContent = "ERRO AO SALVAR";
+  else t.textContent = "AUTO-SAVE OK " + (S.lastSaved ? new Date(S.lastSaved).toLocaleTimeString("pt-BR") : "");
+}
+function getSnaps(){ try{ const a = JSON.parse(localStorage.getItem(SNAPKEY) || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+function snapshotDaily(json){
+  // guarda a 1ª versão de cada dia (= como estava ao final do dia anterior). Mantém 7.
+  const today = dk(); const arr = getSnaps();
+  if(arr.length && arr[arr.length-1].d === today) return;
+  arr.push({d:today, t:Date.now(), data:json});
+  while(arr.length > 7) arr.shift();
+  for(let i = 0; i < 4; i++){
+    try{ localStorage.setItem(SNAPKEY, JSON.stringify(arr)); return; }
+    catch(e){ if(arr.length > 1) arr.shift(); else return; }
+  }
+}
+window.addEventListener("beforeunload", () => { if(saveT){ clearTimeout(saveT); doSave(); } });
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden" && saveT){ clearTimeout(saveT); doSave(); } });
+
+/* ---- backup automático em arquivo (Chrome/Edge) ---- */
+const canFS = typeof window.showSaveFilePicker === "function";
+let fileHandle = null, fileT = null, fileStatus = "none", lastFileWrite = null;
+function exportObj(){ return {app:"biblioteca-de-beco", version:1, exportedAt:new Date().toISOString(), state:S}; }
+async function linkFile(){
+  try{
+    fileHandle = await window.showSaveFilePicker({suggestedName:"biblioteca-de-beco-backup.json", types:[{description:"Backup JSON", accept:{"application/json":[".json"]}}]});
+    try{ await idbSet("fileHandle", fileHandle); }catch(e){}
+    S.fileName = fileHandle.name; save();
+    await writeFile(); toast("Arquivo de backup vinculado ✓");
+  }catch(e){ if(e && e.name !== "AbortError") toast("Não foi possível vincular o arquivo."); }
+  if(curTab === "backup") renderBackup();
+}
+async function writeFile(){
+  if(!fileHandle) return;
+  try{
+    const p = await fileHandle.queryPermission({mode:"readwrite"});
+    if(p !== "granted"){ fileStatus = "perm"; updateFileUI(); return; }
+    const w = await fileHandle.createWritable();
+    await w.write(JSON.stringify(exportObj()));
+    await w.close();
+    lastFileWrite = Date.now(); fileStatus = "ok";
+  }catch(e){ fileStatus = "err"; }
+  updateFileUI();
+}
+function queueFileBackup(){ if(!fileHandle) return; clearTimeout(fileT); fileT = setTimeout(writeFile, 2000); }
+async function reconnectFile(){
+  if(!fileHandle) return;
+  try{ const p = await fileHandle.requestPermission({mode:"readwrite"}); if(p === "granted"){ await writeFile(); toast("Backup em arquivo reativado ✓"); } }catch(e){ toast("Permissão negada."); }
+  if(curTab === "backup") renderBackup();
+}
+async function unlinkFile(){ fileHandle = null; fileStatus = "none"; S.fileName = null; try{ await idbSet("fileHandle", null); }catch(e){} save(); renderBackup(); }
+function updateFileUI(){
+  const el = document.getElementById("fileStatus"); if(!el) return;
+  el.innerHTML = fileStatusHTML();
+  const b = document.getElementById("globalBanner"); if(b) renderBanner();
+}
+function fileStatusHTML(){
+  if(!fileHandle) return '<span class="muted">Nenhum arquivo vinculado.</span>';
+  if(fileStatus === "perm") return '<span style="color:var(--butter)">Arquivo <b>'+esc(fileHandle.name)+'</b> precisa de permissão nesta sessão.</span> <button class="btn sm pri" onclick="reconnectFile()">Reativar</button>';
+  if(fileStatus === "err") return '<span style="color:#ff8fa8">Falha ao gravar em <b>'+esc(fileHandle.name)+'</b>.</span> <button class="btn sm" onclick="reconnectFile()">Tentar de novo</button>';
+  return '<span style="color:var(--mint)">● Gravando em <b>'+esc(fileHandle.name)+'</b></span>' + (lastFileWrite ? ' <span class="dim">— último: '+new Date(lastFileWrite).toLocaleTimeString("pt-BR")+'</span>' : "");
+}
+function download(name, text, type){
+  const blob = new Blob([text], {type:type || "application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function exportJSON(){
+  S.lastExport = Date.now(); save(true);
+  download("biblioteca-de-beco-"+dk()+".json", JSON.stringify(exportObj(), null, 1));
+  toast("Backup baixado ✓"); renderBanner(); if(curTab === "backup") renderBackup();
+}
+function exportNotes(){
+  let out = "# Minhas anotações — Biblioteca de Beco\nExportado em "+new Date().toLocaleString("pt-BR")+"\n";
+  allBooks().forEach(b => {
+    const s = peek(b.id);
+    if(!s.notes && !(s.quotes||[]).length && !s.rating) return;
+    out += "\n\n## "+b.title_+" — "+(b.a||"")+"\n";
+    out += "Status: "+STATUS[s.status]+(s.rating ? " · Nota: "+"★".repeat(s.rating) : "")+(s.fav ? " · ♥ favorito" : "")+"\n";
+    if(s.notes) out += "\n"+s.notes+"\n";
+    if((s.quotes||[]).length) out += "\nCitações:\n"+s.quotes.map(q => "> "+q.t+(q.p ? " (p. "+q.p+")" : "")).join("\n")+"\n";
+  });
+  const j = Object.keys(S.journal).sort();
+  if(j.length){ out += "\n\n# Diário de leitura\n"; j.forEach(d => { if(S.journal[d]) out += "\n### "+fmtDate(d)+"\n"+S.journal[d]+"\n"; }); }
+  download("anotacoes-biblioteca-de-beco-"+dk()+".md", out, "text/markdown");
+  toast("Anotações exportadas em Markdown ✓");
+}
+function importJSON(input){
+  const file = input.files && input.files[0]; if(!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const obj = JSON.parse(rd.result);
+      const st = obj && obj.state ? obj.state : obj;
+      if(!st || typeof st !== "object" || typeof st.books !== "object") throw new Error("formato");
+      if(!confirm("Importar este backup vai SUBSTITUIR os dados atuais deste navegador. Uma cópia do estado atual será guardada em ‘Cópias diárias’. Continuar?")) return;
+      pushManualSnap();
+      S = migrate(st); save(true); renderAll(); toast("Backup importado ✓");
+    }catch(e){ alert("Arquivo inválido. Escolha um .json exportado pela Biblioteca de Beco."); }
+    input.value = "";
+  };
+  rd.readAsText(file);
+}
+function pushManualSnap(){
+  const arr = getSnaps(); arr.push({d:dk()+" (antes de importar/restaurar)", t:Date.now(), data:JSON.stringify(S)});
+  while(arr.length > 8) arr.shift();
+  try{ localStorage.setItem(SNAPKEY, JSON.stringify(arr)); }catch(e){}
+}
+function restoreSnap(i){
+  const arr = getSnaps(); const sn = arr[i]; if(!sn) return;
+  if(!confirm("Restaurar a cópia de "+sn.d+"? O estado atual também será guardado como cópia.")) return;
+  try{ const st = JSON.parse(sn.data); pushManualSnap(); S = migrate(st); save(true); renderAll(); toast("Cópia restaurada ✓"); }catch(e){ alert("Essa cópia está corrompida."); }
+}
+function resetAll(){
+  if(!confirm("Apagar TODOS os seus dados (status, notas, diário, metas)? Isso não pode ser desfeito.")) return;
+  if(prompt("Para confirmar, digite APAGAR") !== "APAGAR") return;
+  pushManualSnap(); S = defaults(); save(true); renderAll(); toast("Tudo zerado. (Uma cópia ficou em ‘Cópias diárias’.)");
+}
+
+/* =================== livros =================== */
+function customBooks(){ return S.custom.map(c => Object.assign({custom:true, s:"", ag:"", c:"", v:[]}, c)); }
+function allBooks(){ return CAT.concat(customBooks()).map(b => { b.title_ = b.t; return b; }); }
+function getBook(id){ if(BY[id]) return BY[id]; const c = S.custom.find(x => x.id === id); return c ? Object.assign({custom:true, s:"", ag:"", c:"", v:[]}, c) : null; }
+function st(id){ if(!S.books[id]) S.books[id] = Object.assign({}, EMPTY, {quotes:[]}); return S.books[id]; }
+function peek(id){ return S.books[id] || EMPTY; }
+function typeName(t){ return t === "nf" ? "Não ficção" : "Ficção"; }
+function setStatus(id, s, silent){
+  const b = st(id), bk = getBook(id); const prev = b.status;
+  b.status = s;
+  if(s === "reading" && !b.started) b.started = dk();
+  if(s === "read"){ if(!b.finished) b.finished = dk(); if(!b.started) b.started = dk(); if(bk && bk.p) b.page = bk.p; }
+  if(s !== "read" && prev === "read") b.finished = null;
+  if(s === "none"){ b.started = null; }
+  save();
+  if(!silent){ if(s === "read" && prev !== "read") toast("✓ Marcado como lido: "+(bk ? bk.t : "")); refresh(); }
+}
+function toggleRead(id){ setStatus(id, peek(id).status === "read" ? "none" : "read"); }
+function toggleFav(id){ const b = st(id); b.fav = !b.fav; save(); toast(b.fav ? "♥ Favoritado" : "Removido dos favoritos"); refresh(); }
+function toggleWant(id){ const b = st(id); b.want = !b.want; save(); toast(b.want ? "+ Adicionado a Quero Ler" : "Removido de Quero Ler"); refresh(); }
+function setRating(id, r){ const b = st(id); b.rating = b.rating === r ? 0 : r; save(); refresh(); }
+function setPage(id, v){
+  const b = st(id), bk = getBook(id); let p = parseInt(v, 10); if(isNaN(p) || p < 0) p = 0;
+  if(bk && bk.p && p > bk.p) p = bk.p;
+  b.page = p;
+  if(p > 0 && b.status === "none"){ b.status = "reading"; if(!b.started) b.started = dk(); }
+  save();
+  if(bk && bk.p && p >= bk.p && b.status !== "read"){ if(confirm("Chegou na última página! Marcar “"+bk.t+"” como lido?")){ setStatus(id, "read"); return; } }
+  refresh();
+}
+function pct(id){ const bk = getBook(id), b = peek(id); if(b.status === "read") return 100; if(!bk || !bk.p) return 0; return Math.min(100, Math.round((b.page||0) / bk.p * 100)); }
+function starsTxt(r){ return r ? "★".repeat(r)+"☆".repeat(5-r) : ""; }
+function orderOf(type){ return CAT.filter(b => b.type === type).concat(customBooks().filter(b => b.type === type)); }
+function nextUnread(type, n){ return orderOf(type).filter(b => peek(b.id).status === "none").slice(0, n); }
+function readingOf(type){ return orderOf(type).filter(b => peek(b.id).status === "reading"); }
+
+/* =================== log diário / timer =================== */
+function dayLog(d){ if(!S.log[d]) S.log[d] = {nf:0, f:0, mode:"", checks:{}}; if(!S.log[d].checks) S.log[d].checks = {}; return S.log[d]; }
+function goalSecs(tr){ return (tr === "nf" ? S.settings.goalNF : S.settings.goalF) * 60; }
+function runningDelta(tr){ const t = S.timer[tr]; if(!t.start) return 0; return Math.max(0, Math.min(Math.floor((Date.now()-t.start)/1000), goalSecs(tr) - t.acc)); }
+function sessSecs(tr){ return S.timer[tr].acc + runningDelta(tr); }
+function daySecs(d, tr){ const L = S.log[d]; let v = L ? (L[tr]||0) : 0; if(d === dk()) v += runningDelta(tr); return v; }
+function dayTotal(d){ return daySecs(d,"nf") + daySecs(d,"f"); }
+function dayMet(d){ return daySecs(d,"nf") >= goalSecs("nf") && daySecs(d,"f") >= goalSecs("f"); }
+function ensureSel(tr){
+  const cur = S.timer.sel[tr]; const bk = cur && getBook(cur);
+  if(bk && bk.type === tr && peek(cur).status !== "read") return cur;
+  const r = readingOf(tr)[0] || nextUnread(tr, 1)[0];
+  S.timer.sel[tr] = r ? r.id : null; return S.timer.sel[tr];
+}
+function addTime(tr, secs, bookId){
+  if(!secs) return;
+  const L = dayLog(dk()); L[tr] = Math.max(0, (L[tr]||0) + secs);
+  const b = bookId || S.timer.sel[tr];
+  if(b){ const x = st(b); x.secs = Math.max(0, (x.secs||0) + secs); }
+}
+function commit(tr, stop){
+  const t = S.timer[tr]; if(!t.start) return;
+  const delta = runningDelta(tr);
+  addTime(tr, delta); t.acc += delta;
+  t.start = stop ? null : Date.now();
+}
+function startT(tr){
+  const t = S.timer[tr]; if(t.start) return;
+  if(t.acc >= goalSecs(tr)) t.acc = 0;
+  const id = ensureSel(tr);
+  if(id && peek(id).status === "none") setStatus(id, "reading", true);
+  t.start = Date.now(); save(); renderTimers();
+}
+function pauseT(tr){ commit(tr, true); save(); renderTimers(); }
+function resetT(tr){ commit(tr, true); S.timer[tr].acc = 0; save(); renderTimers(); }
+function adjust(tr, mins){
+  const L = dayLog(dk()); const before = L[tr]||0;
+  addTime(tr, mins*60);
+  if(mins < 0 && before + mins*60 < 0){ L[tr] = 0; }
+  save(); renderTimers(); toast((mins > 0 ? "+" : "")+mins+" min em "+typeName(tr).toLowerCase());
+}
+function selBook(tr, id){ commit(tr, false); S.timer.sel[tr] = id || null; if(id && peek(id).status === "none") setStatus(id, "reading", true); save(); renderTimers(); }
+function sessionDone(tr){
+  commit(tr, true); save(); beep();
+  toast("✓ Sessão de "+(tr === "nf" ? S.settings.goalNF : S.settings.goalF)+" min de "+typeName(tr).toLowerCase()+" concluída!");
+  document.title = "✓ Sessão concluída — Biblioteca de Beco";
+  setTimeout(() => document.title = "Biblioteca de Beco", 8000);
+  renderTimers();
+}
+function beep(){
+  if(!S.settings.sound) return;
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext; const ctx = new AC();
+    [523,659,784,1047].forEach((f,i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); const t0 = ctx.currentTime + i*0.16;
+      o.type = "square"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t0+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0+0.15);
+      o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0+0.16);
+    });
+    setTimeout(() => ctx.close(), 1500);
+  }catch(e){}
+}
+function streak(){
+  let d = new Date(); if(!dayMet(dk(d))) d = addDays(d, -1);
+  let n = 0; while(dayMet(dk(d))){ n++; d = addDays(d, -1); if(n > 5000) break; }
+  return n;
+}
+function bestStreak(){
+  const days = Object.keys(S.log).filter(d => dayMet(d)).sort(); let best = 0, cur = 0, prev = null;
+  days.forEach(d => { if(prev && dk(addDays(parseDk(prev),1)) === d) cur++; else cur = 1; best = Math.max(best, cur); prev = d; });
+  return best;
+}
+
+/* =================== abas =================== */
+const TABS = [
+  ["hoje","Hoje","var(--mint)"],["nf","Não ficção","var(--lav)"],["f","Ficção","var(--pink)"],
+  ["quero","Quero ler + ♥","var(--butter)"],["metas","Metas & stats","var(--sky)"],["mapa","Mapa do Baka","var(--peach)"],["backup","Backup","var(--mint)"]
+];
+function floppy(color){ return '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="14" rx="2" fill="'+color+'" stroke="#1b1626" stroke-width="1.4"/><rect x="4" y="1.6" width="8" height="4.4" fill="#1b1626"/><rect x="9.2" y="2.4" width="1.8" height="2.8" fill="'+color+'"/><rect x="3.2" y="8.6" width="9.6" height="5.2" rx="1" fill="#efe9ff" stroke="#1b1626" stroke-width="1"/></svg>'; }
+let curTab = "hoje";
+try{ const u = JSON.parse(localStorage.getItem(UIKEY) || "{}"); if(u.tab && TABS.some(t => t[0] === u.tab)) curTab = u.tab; }catch(e){}
+function renderTabs(){
+  $("#tabs").innerHTML = TABS.map(t => '<button class="tab" role="tab" aria-selected="'+(t[0]===curTab)+'" onclick="go(\''+t[0]+'\')">'+floppy(t[2])+esc(t[1])+'</button>').join("");
+}
+function go(tab){
+  curTab = tab; try{ localStorage.setItem(UIKEY, JSON.stringify({tab})); }catch(e){}
+  document.querySelectorAll("main > section").forEach(s => s.classList.toggle("hide", s.dataset.tab !== tab));
+  renderTabs(); renderTab(tab); window.scrollTo({top:0});
+}
+function renderTab(tab){
+  if(tab === "hoje") renderToday();
+  else if(tab === "nf" || tab === "f") renderList(tab);
+  else if(tab === "quero") renderWant();
+  else if(tab === "metas") renderStats();
+  else if(tab === "mapa") renderMap();
+  else if(tab === "backup") renderBackup();
+}
+function refresh(keepModal){
+  renderTab(curTab); renderBanner();
+  if(openId && !keepModal) renderModal();
+}
+function renderAll(){ renderTabs(); buildToolbars(); go(curTab); renderBanner(); if(openId) renderModal(); }
+
+function win(title, cls, inner, extra){ return '<div class="win '+(cls||"")+'" '+(extra||"")+'><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span>'+title+'</span><span class="sp"></span></div><div class="body">'+inner+'</div></div>'; }
+
+function renderBanner(){
+  const el = $("#globalBanner"); let h = "";
+  if(!storageOK) h += '<div class="banner err"><b>Atenção:</b> este navegador está bloqueando o armazenamento local (modo anônimo ou dados de site bloqueados). Seus dados podem se perder ao fechar. Use a aba Backup para exportar.</div>';
+  const days = S.lastExport ? (Date.now() - S.lastExport) / 864e5 : null;
+  const hasData = Object.keys(S.books).length || Object.keys(S.log).length;
+  if(hasData && !fileHandle && (days === null || days > 14)) h += '<div class="banner">💾 '+(days === null ? "Você ainda não fez nenhum backup." : "Seu último backup tem "+Math.floor(days)+" dias.")+' <button class="btn sm pri" onclick="exportJSON()">Baixar backup agora</button> <button class="btn sm" onclick="go(\'backup\')">Opções</button></div>';
+  if(fileHandle && fileStatus === "perm") h += '<div class="banner">O backup automático em arquivo precisa ser reativado nesta sessão. <button class="btn sm pri" onclick="reconnectFile()">Reativar</button></div>';
+  el.innerHTML = h;
+}
+
+/* =================== HOJE =================== */
+function renderToday(){
+  ensureSel("nf"); ensureSel("f");
+  const today = dk(); const L = S.log[today] || {mode:"",checks:{}};
+  const modes = [["low","Low power",1],["eco","Eco",2],["normal","Normal",3],["turbo","Turbo",4]];
+  const modeHTML = '<div class="modes">'+modes.map(m => '<button class="mode" aria-pressed="'+(L.mode===m[0])+'" onclick="setMode(\''+m[0]+'\')"><span class="batt">'+[1,2,3,4].map(i => '<i style="background:'+(i<=m[2] ? (m[2]===1?"#ff8fa8":m[2]===4?"var(--lav)":"var(--mint)") : "#3a3252")+'"></i>').join("")+'</span>'+m[1]+'</button>').join("")+'</div><p class="small muted" style="margin:10px 0 0">Como está sua energia hoje? Em <b>low power</b>, prefira um livro mais leve da fila. Isso também conta: só abrir o livro já mantém o hábito.</p>';
+  const checks = [["nf","30 min de não ficção",true],["f","30 min de ficção",true],["note","Escrevi uma anotação ou citação"],["recall","Relembrei o que li ontem (2 min)"],["screen","Sem tela 30 min antes de dormir"]];
+  const ckHTML = checks.map(c => {
+    if(c[2]) return '<label class="chk auto"><input type="checkbox" disabled id="ck-'+c[0]+'"> '+c[1].replace("30", c[0]==="nf"?S.settings.goalNF:S.settings.goalF)+' <span class="dim small">(automático)</span></label>';
+    return '<label class="chk"><input type="checkbox" '+(L.checks && L.checks[c[0]] ? "checked" : "")+' onchange="setCheck(\''+c[0]+'\',this.checked)"> '+c[1]+'</label>';
+  }).join("") + '<p class="small dim" style="margin:8px 0 0">System will rest. Goodnight. <sub>z</sub>z<sup>Z</sup></p>';
+  const fila = t => { const r = readingOf(t), n = nextUnread(t, 3); const items = r.concat(n).slice(0, 4);
+    return items.length ? items.map(b => '<div class="kv" style="cursor:pointer" onclick="openBook(\''+b.id+'\')"><span>'+(peek(b.id).status==="reading" ? '<span class="chip st-reading">lendo</span> ' : '<span class="dim mono">#'+b.n+'</span> ')+esc(b.t)+'</span><span class="dim small">'+(peek(b.id).status==="reading" ? pct(b.id)+"%" : "~"+b.p+"p")+'</span></div>').join("") : '<div class="muted small">Tudo lido por aqui. ✦</div>'; };
+  $("#tab-hoje").innerHTML =
+   '<div class="grid g2">' +
+    win("» System boot ⏻", "c-mint span2",
+      '<div class="boot" id="boot"></div><div class="bootlbl"><span>Low</span><span id="bootTxt"></span><span>Fully loaded</span></div>' +
+      '<div class="kpis"><div class="kpi"><b id="kpiStreak">0</b><span>dias seguidos</span></div><div class="kpi"><b id="kpiToday">0</b><span>min hoje</span></div><div class="kpi"><b id="kpiMonth">0</b><span>metas no mês</span></div><div class="kpi"><b>'+allBooks().filter(b=>peek(b.id).status==="read").length+'</b><span>livros lidos</span></div></div>') +
+    win("Nao_ficcao.exe", "c-lav", '<div id="tw-nf"></div>') +
+    win("Ficcao.exe", "c-pink", '<div id="tw-f"></div>') +
+    win("⚡ Power mode", "c-butter", modeHTML) +
+    win("Shutdown sequence", "c-sky", '<div id="cklist">'+ckHTML+'</div>') +
+    win("✎ Diario_de_hoje.txt", "c-peach", '<textarea class="inp lined" rows="7" placeholder="O que você leu hoje? Uma ideia, uma dúvida, uma frase que ficou…" oninput="setJournal(this.value)">'+esc(S.journal[today]||"")+'</textarea><div class="row" style="justify-content:space-between;margin-top:6px"><span class="savestate" id="journalState"></span><button class="btn sm" onclick="go(\'metas\')">ver diário completo</button></div>') +
+    win("Fila.exe — próximos", "c-mint", '<div class="ctag">Não ficção</div>'+fila("nf")+'<div class="ctag" style="margin-top:12px">Ficção</div>'+fila("f")) +
+    win("Heatmap — últimas 26 semanas", "c-lav span2", heatmapHTML()) +
+   '</div>';
+  renderTimers();
+}
+function setMode(m){ const L = dayLog(dk()); L.mode = L.mode === m ? "" : m; save(); renderToday(); }
+function setCheck(k, v){ const L = dayLog(dk()); L.checks[k] = v; save(); }
+function setJournal(v){ S.journal[dk()] = v; const js = $("#journalState"); if(js) js.textContent = "salvando…"; save(); }
+function timerHTML(tr){
+  const id = S.timer.sel[tr]; const bk = id && getBook(id); const t = S.timer[tr];
+  const opts = [];
+  const rd = readingOf(tr), nx = nextUnread(tr, 12).filter(b => !rd.includes(b));
+  if(rd.length) opts.push('<optgroup label="Lendo agora">'+rd.map(b => '<option value="'+b.id+'" '+(b.id===id?"selected":"")+'>'+esc(b.t)+'</option>').join("")+'</optgroup>');
+  if(nx.length) opts.push('<optgroup label="Próximos da fila">'+nx.map(b => '<option value="'+b.id+'" '+(b.id===id?"selected":"")+'>#'+b.n+' '+esc(b.t)+'</option>').join("")+'</optgroup>');
+  if(id && !rd.some(b=>b.id===id) && !nx.some(b=>b.id===id) && bk) opts.unshift('<option value="'+id+'" selected>'+esc(bk.t)+'</option>');
+  const running = !!t.start;
+  return '<div class="timer">' +
+    '<label class="f">Livro da sessão<select class="inp" onchange="selBook(\''+tr+'\',this.value)">'+(opts.join("") || '<option value="">(acervo concluído)</option>')+'</select></label>' +
+    '<div class="cd'+(running ? " run" : "")+'" id="cd-'+tr+'">'+fmtMMSS(goalSecs(tr)-sessSecs(tr))+'</div>' +
+    '<div class="row" style="justify-content:center">' +
+      (running ? '<button class="btn pri" onclick="pauseT(\''+tr+'\')">❚❚ Pausar</button>' : '<button class="btn '+(tr==="nf"?"pri":"pink")+'" onclick="startT(\''+tr+'\')">▶ '+(t.acc>0 && t.acc<goalSecs(tr) ? "Continuar" : "Iniciar "+(goalSecs(tr)/60)+" min")+'</button>') +
+      '<button class="btn" onclick="resetT(\''+tr+'\')" title="Zerar o cronômetro da sessão (o tempo já lido continua registrado)">↺ Zerar</button>' +
+    '</div>' +
+    '<div><div class="tline"><span>Hoje</span><span id="td-'+tr+'"></span></div><div class="pbar'+(tr==="f"?" pink":"")+'"><i id="tb-'+tr+'bar"></i></div></div>' +
+    '<div class="row small" style="justify-content:space-between"><span class="dim mono">Ajuste manual:</span><span class="row"><button class="btn sm" onclick="adjust(\''+tr+'\',-5)">−5</button><button class="btn sm" onclick="adjust(\''+tr+'\',5)">+5</button><button class="btn sm" onclick="adjust(\''+tr+'\',15)">+15</button><button class="btn sm" onclick="adjust(\''+tr+'\',30)">+30</button></span></div>' +
+    (bk ? '<div style="border-top:2px dashed var(--line);padding-top:10px"><div class="tbook">'+esc(bk.t)+'</div><div class="ba">'+esc(bk.a||"")+'</div>' +
+      '<div class="row small" style="margin-top:6px">Parei na página <input class="inp" type="number" min="0" '+(bk.p?'max="'+bk.p+'"':"")+' style="width:86px" value="'+(peek(id).page||0)+'" onchange="setPage(\''+id+'\',this.value)"> de '+(bk.p||"?")+' <button class="btn sm" onclick="openBook(\''+id+'\')">abrir / anotar</button></div>' +
+      '<div class="minibar" style="max-width:none"><i style="width:'+pct(id)+'%"></i></div></div>' : "") +
+  '</div>';
+}
+function renderTimers(){
+  if(curTab !== "hoje") return;
+  ["nf","f"].forEach(tr => { const el = document.getElementById("tw-"+tr); if(el) el.innerHTML = timerHTML(tr); });
+  tickUI();
+}
+function tickUI(){
+  if(curTab !== "hoje") return;
+  const today = dk();
+  ["nf","f"].forEach(tr => {
+    const cd = document.getElementById("cd-"+tr); if(!cd) return;
+    const remain = goalSecs(tr) - sessSecs(tr);
+    cd.textContent = fmtMMSS(remain);
+    cd.classList.toggle("run", !!S.timer[tr].start); cd.classList.toggle("done", remain <= 0 && !S.timer[tr].start);
+    const ds = daySecs(today, tr);
+    const td = document.getElementById("td-"+tr); if(td) td.textContent = fmtHM(ds)+" / "+(goalSecs(tr)/60)+" min";
+    const tb = document.getElementById("tb-"+tr+"bar"); if(tb) tb.style.width = Math.min(100, ds/goalSecs(tr)*100)+"%";
+    const ck = document.getElementById("ck-"+tr); if(ck) ck.checked = ds >= goalSecs(tr);
+  });
+  const boot = $("#boot");
+  if(boot){
+    const nfS = Math.min(daySecs(today,"nf"), goalSecs("nf")), fS = Math.min(daySecs(today,"f"), goalSecs("f"));
+    const tot = goalSecs("nf") + goalSecs("f"); const segs = 12;
+    const onNF = Math.floor(nfS / tot * segs + 1e-9), onF = Math.floor((nfS+fS) / tot * segs + 1e-9) - onNF;
+    let h = ""; for(let i = 0; i < segs; i++) h += '<i class="'+(i < onNF ? "on" : i < onNF+onF ? "on f" : "")+'"></i>';
+    boot.innerHTML = h;
+    $("#bootTxt").textContent = Math.round(dayTotal(today)/60)+" / "+(tot/60)+" min";
+    $("#kpiToday").textContent = Math.round(dayTotal(today)/60);
+    $("#kpiStreak").textContent = streak();
+    const now = new Date(); let mm = 0; for(let d = 1; d <= now.getDate(); d++){ if(dayMet(dk(new Date(now.getFullYear(), now.getMonth(), d)))) mm++; }
+    $("#kpiMonth").textContent = mm;
+  }
+}
+function heatmapHTML(){
+  const weeks = 26; const today = new Date(); today.setHours(0,0,0,0);
+  const start = addDays(today, -today.getDay() - (weeks-1)*7); // domingo de 25 semanas atrás
+  const tot = goalSecs("nf") + goalSecs("f"); let h = "";
+  for(let i = 0; i < weeks*7; i++){
+    const d = addDays(start, i); if(d > today){ h += '<i class="fut"></i>'; continue; }
+    const k = dk(d), v = dayTotal(k); const r = v / tot;
+    const l = v <= 0 ? "" : r < .25 ? "l1" : r < .5 ? "l2" : r < 1 ? "l3" : "l4";
+    h += '<i class="'+l+'" title="'+fmtDate(k)+': '+fmtHM(v)+'"></i>';
+  }
+  return '<div class="heat">'+h+'</div><div class="legend">menos <i style="background:#2a2340"></i><i style="background:#4b3d78"></i><i style="background:#7a64c2"></i><i style="background:#b39dff"></i><i style="background:var(--mint)"></i> meta cumprida</div>';
+}
+
+/* =================== LISTAS =================== */
+const FL = {nf:{q:"",st:"all",gp:"all",sort:"order"}, f:{q:"",st:"all",gp:"all",sort:"order"}};
+function buildToolbars(){
+  ["nf","f"].forEach(t => {
+    const gp = t === "nf"
+      ? '<option value="all">Todas as fases</option>'+Object.keys(PHASES).map(k => '<option value="'+k+'" '+(FL[t].gp===k?"selected":"")+'>Fase '+k+' — '+esc(PHASES[k].split(" — ")[0].split(" (")[0])+'</option>').join("")
+      : '<option value="all">Todos os gêneros</option>'+Object.keys(GENRES).map(k => '<option value="'+k+'" '+(FL[t].gp===k?"selected":"")+'>'+esc(GENRES[k])+'</option>').join("");
+    $("#tb-"+t).innerHTML =
+      '<input class="inp" type="search" placeholder="Buscar título, autor ou tema…" value="'+esc(FL[t].q)+'" oninput="FL.'+t+'.q=this.value;renderList(\''+t+'\',true)">' +
+      '<select class="inp" onchange="FL.'+t+'.st=this.value;renderList(\''+t+'\',true)">'+[["all","Todos"],["none","Na fila"],["reading","Lendo"],["read","Lidos"],["dropped","Pausados"],["fav","♥ Favoritos"],["want","Quero ler"],["notes","Com anotações"]].map(o => '<option value="'+o[0]+'" '+(FL[t].st===o[0]?"selected":"")+'>'+o[1]+'</option>').join("")+'</select>' +
+      '<select class="inp" onchange="FL.'+t+'.gp=this.value;renderList(\''+t+'\',true)">'+gp+'</select>' +
+      '<select class="inp" onchange="FL.'+t+'.sort=this.value;renderList(\''+t+'\',true)">'+[["order","Ordem sugerida"],["title","Título A–Z"],["short","Menos páginas"],["long","Mais páginas"],["rating","Minha nota"],["year","Ano"]].map(o => '<option value="'+o[0]+'" '+(FL[t].sort===o[0]?"selected":"")+'>'+o[1]+'</option>').join("")+'</select>';
+  });
+}
+function bookRow(b){
+  const s = peek(b.id);
+  const chips = [];
+  if(s.status !== "none") chips.push('<span class="chip st-'+s.status+'">'+STATUS[s.status]+(s.status==="reading" ? " · "+pct(b.id)+"%" : "")+'</span>');
+  if(b.type === "nf" && b.ph) chips.push('<span class="chip">Fase '+b.ph+'</span>');
+  if(b.type === "f" && b.g) chips.push('<span class="chip g-'+b.g+'">'+esc(GENRES[b.g]||b.g)+'</span>');
+  if(b.custom) chips.push('<span class="chip">adicionado por você</span>');
+  if(s.notes || (s.quotes||[]).length) chips.push('<span class="chip">✎ notas</span>');
+  if(s.rating) chips.push('<span class="stars-s">'+starsTxt(s.rating)+'</span>');
+  return '<div class="book '+s.status+'" onclick="openBook(\''+b.id+'\')">' +
+    '<div class="num">'+(b.custom ? "+" : b.n)+'</div>' +
+    '<div style="min-width:0"><div class="bt">'+esc(b.t)+'</div><div class="ba">'+esc(b.a||"")+(b.y!=null && b.y!=="" ? " · "+fmtYear(b.y) : "")+(b.p ? " · ~"+b.p+" págs" : "")+'</div>' +
+    '<div class="chips">'+chips.join("")+'</div>' + (s.status === "reading" ? '<div class="minibar"><i style="width:'+pct(b.id)+'%"></i></div>' : "") + '</div>' +
+    '<div class="qa" onclick="event.stopPropagation()">' +
+      '<button class="ib '+(s.want?"on-want":"")+'" title="Quero ler" aria-label="Quero ler" onclick="toggleWant(\''+b.id+'\')">✚</button>' +
+      '<button class="ib '+(s.fav?"on-fav":"")+'" title="Favorito" aria-label="Favorito" onclick="toggleFav(\''+b.id+'\')">♥</button>' +
+      '<button class="ib '+(s.status==="read"?"on-read":"")+'" title="Marcar como lido" aria-label="Marcar como lido" onclick="toggleRead(\''+b.id+'\')">✓</button>' +
+    '</div></div>';
+}
+function matchQ(b, q){
+  if(!q) return true; q = q.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const hay = [b.t,b.a,b.s,b.ag,b.c,GENRES[b.g],b.ph ? PHASES[b.ph] : "", peek(b.id).notes].join(" ").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  return q.split(/\s+/).every(w => hay.includes(w));
+}
+function filterBooks(t){
+  const F = FL[t]; let arr = orderOf(t);
+  arr = arr.filter(b => {
+    const s = peek(b.id);
+    if(F.st === "fav" && !s.fav) return false;
+    if(F.st === "want" && !s.want) return false;
+    if(F.st === "notes" && !(s.notes || (s.quotes||[]).length)) return false;
+    if(["none","reading","read","dropped"].includes(F.st) && s.status !== F.st) return false;
+    if(F.gp !== "all"){ if(t === "nf" && String(b.ph) !== F.gp) return false; if(t === "f" && b.g !== F.gp) return false; }
+    return matchQ(b, F.q);
+  });
+  const by = {title:(a,b)=>a.t.localeCompare(b.t,"pt-BR"), short:(a,b)=>(a.p||0)-(b.p||0), long:(a,b)=>(b.p||0)-(a.p||0), rating:(a,b)=>peek(b.id).rating-peek(a.id).rating, year:(a,b)=>(a.y||0)-(b.y||0)}[F.sort];
+  if(by) arr = arr.slice().sort(by);
+  return arr;
+}
+function renderList(t, onlyList){
+  if(!onlyList || !$("#sum-"+t).innerHTML){
+    const all = orderOf(t); const read = all.filter(b => peek(b.id).status === "read");
+    const pages = all.reduce((a,b) => a+(b.p||0), 0), pr = read.reduce((a,b) => a+(b.p||0), 0);
+    $("#sum-"+t).innerHTML = '<div class="win '+(t==="nf"?"c-lav":"c-pink")+'" style="margin-bottom:14px"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span>'+(t==="nf"?"Acervo_nao_ficcao.dir":"Acervo_ficcao.dir")+'</span></div><div class="body">' +
+      '<div class="row" style="justify-content:space-between"><span><b class="mono">'+all.length+'</b> livros · <b class="mono">~'+nf(pages)+'</b> páginas · lidos <b class="mono">'+read.length+'</b> ('+(pages?Math.round(pr/pages*100):0)+'% das páginas)</span><span class="dim small mono">'+(t==="nf" ? "ordem pensada como trilha: do básico ao complexo" : "ordem alternando gêneros para não cansar")+'</span></div>' +
+      '<div class="pbar '+(t==="nf"?"":"pink")+'" style="margin-top:8px"><i style="width:'+(pages?pr/pages*100:0)+'%"></i></div></div></div>';
+  }
+  const arr = filterBooks(t); const F = FL[t];
+  if(!arr.length){ $("#list-"+t).innerHTML = '<div class="empty">Nada encontrado com esses filtros.</div>'; return; }
+  let h = "";
+  if(t === "nf" && F.sort === "order"){
+    let cur = null;
+    arr.forEach(b => { const key = b.custom ? "c" : b.ph; if(key !== cur){ if(cur !== null) h += "</div>"; cur = key; h += '<div class="phase">'+(b.custom ? "Adicionados por você" : "Fase "+b.ph+" · "+esc(PHASES[b.ph]))+'</div><div class="blist">'; } h += bookRow(b); });
+    h += "</div>";
+  } else if(t === "f" && F.sort === "order"){
+    const cat = arr.filter(b => !b.custom), cu = arr.filter(b => b.custom);
+    if(cat.length) h += '<div class="blist">'+cat.map(bookRow).join("")+'</div>';
+    if(cu.length) h += '<div class="phase">Adicionados por você</div><div class="blist">'+cu.map(bookRow).join("")+'</div>';
+  } else h = '<div class="blist">'+arr.map(bookRow).join("")+'</div>';
+  $("#list-"+t).innerHTML = h;
+}
+
+/* =================== MODAL =================== */
+let openId = null;
+function openBook(id){ openId = id; renderModal(); document.body.style.overflow = "hidden"; }
+function closeModal(){ openId = null; $("#modalRoot").innerHTML = ""; document.body.style.overflow = ""; refresh(true); }
+document.addEventListener("keydown", e => { if(e.key === "Escape" && openId) closeModal(); });
+function renderModal(){
+  const id = openId; const b = getBook(id); if(!b){ closeModal(); return; }
+  const s = peek(id);
+  const seq = orderOf(b.type); const i = seq.findIndex(x => x.id === id);
+  const prev = seq[i-1], next = seq[i+1];
+  const meta = [typeName(b.type)];
+  if(b.ph) meta.push("Fase "+b.ph); if(b.g) meta.push(GENRES[b.g]||b.g);
+  if(b.y != null && b.y !== "") meta.push(fmtYear(b.y)); if(b.p) meta.push("~"+b.p+" págs");
+  if(!b.custom) meta.push("#"+b.n+" na trilha");
+  const conc = (CONCEPT_OF[id]||[]).map(ci => '<span class="chip click" onclick="closeModal();go(\'mapa\');setTimeout(()=>{const el=document.getElementById(\'cc'+ci+'\');if(el)el.scrollIntoView({behavior:\'smooth\',block:\'center\'})},60)">'+CONCEPTS[ci].ic+' '+esc(CONCEPTS[ci].t)+'</span>').join("");
+  const vids = (b.v||[]).map(v => '<a href="https://www.youtube.com/watch?v='+encodeURIComponent(v)+'" target="_blank" rel="noopener">'+esc(VIDEOS[v] || v)+'</a>').join("");
+  const days = s.secs ? fmtHM(s.secs) : "—";
+  let pagesPerHour = "";
+  if(s.secs > 600 && s.page > 0 && s.status !== "read") pagesPerHour = " · ritmo ≈ "+Math.round(s.page / (s.secs/1800))+" págs/30 min";
+  const edit = b.custom ? '<div class="blk"><h4>Editar livro adicionado</h4><div class="grid g2">' +
+      '<label class="f">Título<input class="inp" value="'+esc(b.t)+'" onchange="editCustom(\''+id+'\',\'t\',this.value)"></label>' +
+      '<label class="f">Autor<input class="inp" value="'+esc(b.a||"")+'" onchange="editCustom(\''+id+'\',\'a\',this.value)"></label>' +
+      '<label class="f">Páginas<input class="inp" type="number" min="0" value="'+(b.p||"")+'" onchange="editCustom(\''+id+'\',\'p\',this.value)"></label>' +
+      '<label class="f">Tipo<select class="inp" onchange="editCustom(\''+id+'\',\'type\',this.value)"><option value="nf" '+(b.type==="nf"?"selected":"")+'>Não ficção</option><option value="f" '+(b.type==="f"?"selected":"")+'>Ficção</option></select></label>' +
+      '<label class="f span2">Por que quero ler / do que se trata<textarea class="inp" rows="2" onchange="editCustom(\''+id+'\',\'s\',this.value)">'+esc(b.s||"")+'</textarea></label>' +
+    '</div><div style="margin-top:8px"><button class="btn sm danger" onclick="delCustom(\''+id+'\')">Excluir este livro</button></div></div>' : "";
+  $("#modalRoot").innerHTML = '<div class="mback" onclick="if(event.target===this)closeModal()"><div class="modal">' +
+   '<div class="win '+(b.type==="nf"?"c-lav":"c-pink")+'" role="dialog" aria-modal="true" aria-label="'+esc(b.t)+'"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span>Livro.exe — '+esc(id)+'</span><span class="sp"></span><button class="x" onclick="closeModal()" aria-label="Fechar">✕</button></div><div class="body">' +
+    '<h3>'+esc(b.t)+'</h3><div class="sub">'+esc(b.a||"")+'</div><div class="chips">'+meta.map(m => '<span class="chip">'+esc(m)+'</span>').join("")+'</div>' +
+    (b.s ? '<div class="blk"><h4>Resumo, sem spoiler</h4><p>'+esc(b.s)+'</p></div>' : "") +
+    (b.ag ? '<div class="blk"><h4>O que vai te agregar</h4><p>'+esc(b.ag)+'</p></div>' : "") +
+    (b.c ? '<div class="blk"><h4>'+(b.type==="nf" ? "Conexão com o pensamento do Baka" : "Ponte com o pensamento do Baka")+'</h4><p>'+esc(b.c)+'</p>'+(vids ? '<div class="vlinks">'+vids+'</div>' : "")+'</div>' : "") +
+    (conc ? '<div class="blk"><h4>Conceitos do mapa</h4><div class="chips">'+conc+'</div></div>' : "") +
+    edit +
+    '<div class="blk"><h4>Status</h4><div class="seg">'+Object.keys(STATUS).map(k => '<button aria-pressed="'+(s.status===k)+'" onclick="setStatus(\''+id+'\',\''+k+'\')">'+STATUS[k]+'</button>').join("")+'</div></div>' +
+    '<div class="blk"><h4>Progresso</h4><div class="row">Página <input class="inp" type="number" min="0" '+(b.p?'max="'+b.p+'"':"")+' style="width:96px" value="'+(s.page||0)+'" onchange="setPage(\''+id+'\',this.value)"> de '+(b.p||"?")+' <span class="dim small">· '+pct(id)+'% · tempo lido: '+days+pagesPerHour+'</span></div><div class="pbar '+(b.type==="nf"?"":"pink")+'" style="margin-top:8px"><i style="width:'+pct(id)+'%"></i></div>' +
+      '<div class="row small" style="margin-top:10px"><label class="f">Comecei em<input class="inp" type="date" value="'+(s.started||"")+'" onchange="setDate(\''+id+'\',\'started\',this.value)"></label><label class="f">Terminei em<input class="inp" type="date" value="'+(s.finished||"")+'" onchange="setDate(\''+id+'\',\'finished\',this.value)"></label></div></div>' +
+    '<div class="blk row" style="justify-content:space-between"><div><h4>Minha nota</h4><div class="stars">'+[1,2,3,4,5].map(r => '<button class="'+(s.rating>=r?"on":"")+'" onclick="setRating(\''+id+'\','+r+')" aria-label="'+r+' estrelas">★</button>').join("")+'</div></div>' +
+      '<div class="row"><button class="btn '+(s.fav?"pink":"")+'" onclick="toggleFav(\''+id+'\')">♥ '+(s.fav?"Favorito":"Favoritar")+'</button><button class="btn '+(s.want?"pri":"")+'" onclick="toggleWant(\''+id+'\')">✚ '+(s.want?"Na lista Quero Ler":"Quero ler")+'</button></div></div>' +
+    '<div class="blk"><h4>Minhas anotações <span class="savestate" id="noteState"></span></h4><textarea class="inp lined" id="noteArea" rows="9" placeholder="Ideias, discordâncias, conexões com outros livros, com os vídeos, com a sua vida…" oninput="setNotes(\''+id+'\',this.value)">'+esc(s.notes||"")+'</textarea>' +
+      '<div class="row" style="margin-top:6px"><button class="btn sm" onclick="stampNote(\''+id+'\')">+ inserir data</button><span class="dim small">Salva sozinho enquanto você digita.</span></div></div>' +
+    '<div class="blk"><h4>Citações e trechos</h4><div id="qlist">'+(s.quotes||[]).map((q,qi) => '<div class="quote"><span>“'+esc(q.t)+'”'+(q.p ? ' <span class="dim">— p. '+esc(q.p)+'</span>' : "")+'</span><button class="btn sm" onclick="delQuote(\''+id+'\','+qi+')" aria-label="Remover citação">✕</button></div>').join("")+'</div>' +
+      '<div class="row"><input class="inp" id="qText" style="flex:1 1 260px" placeholder="Cole ou digite um trecho marcante"><input class="inp" id="qPage" style="width:90px" placeholder="pág."><button class="btn mint" onclick="addQuote(\''+id+'\')">Adicionar</button></div></div>' +
+    '<div class="pnav">'+(prev ? '<button class="btn sm" onclick="openBook(\''+prev.id+'\')">← '+esc(prev.t.slice(0,34))+'</button>' : "<span></span>")+(next ? '<button class="btn sm" onclick="openBook(\''+next.id+'\')">'+esc(next.t.slice(0,34))+' →</button>' : "<span></span>")+'</div>' +
+   '</div></div></div></div>';
+  const qt = document.getElementById("qText"); if(qt) qt.addEventListener("keydown", e => { if(e.key === "Enter") addQuote(id); });
+}
+function setNotes(id, v){ st(id).notes = v; const ns = $("#noteState"); if(ns) ns.textContent = "salvando…"; save(); }
+function stampNote(id){
+  const ta = $("#noteArea"); const stamp = (ta.value && !ta.value.endsWith("\n") ? "\n" : "")+"— "+new Date().toLocaleDateString("pt-BR")+" —\n";
+  ta.value += stamp; setNotes(id, ta.value); ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length;
+}
+function addQuote(id){
+  const t = $("#qText").value.trim(); if(!t) return;
+  st(id).quotes.push({t, p:$("#qPage").value.trim(), d:dk()}); save(); renderModal(); toast("Citação guardada ✓");
+}
+function delQuote(id, i){ if(!confirm("Remover esta citação?")) return; st(id).quotes.splice(i,1); save(); renderModal(); }
+function setDate(id, k, v){ st(id)[k] = v || null; save(); }
+function editCustom(id, k, v){
+  const c = S.custom.find(x => x.id === id); if(!c) return;
+  if(k === "p"){ v = parseInt(v,10); if(isNaN(v) || v < 0) v = 0; }
+  if(k === "t" && !String(v).trim()){ toast("O título não pode ficar vazio."); renderModal(); return; }
+  c[k] = v; save(); renderModal();
+}
+function delCustom(id){
+  const c = S.custom.find(x => x.id === id); if(!c) return;
+  if(!confirm("Excluir “"+c.t+"” e as anotações dele?")) return;
+  S.custom = S.custom.filter(x => x.id !== id); delete S.books[id];
+  ["nf","f"].forEach(t => { if(S.timer.sel[t] === id) S.timer.sel[t] = null; });
+  save(); closeModal(); toast("Livro excluído.");
+}
+
+/* =================== QUERO LER =================== */
+function addCustom(){
+  const t = $("#cT").value.trim(); if(!t){ toast("Coloque pelo menos o título."); $("#cT").focus(); return; }
+  const c = {id:"c"+Date.now().toString(36), t, a:$("#cA").value.trim(), type:$("#cType").value, p:parseInt($("#cP").value,10)||0, y:$("#cY").value.trim(), s:$("#cS").value.trim(), added:dk()};
+  S.custom.push(c); st(c.id).want = true; save(); toast("“"+t+"” adicionado ✓"); renderWant();
+}
+function renderWant(){
+  const want = allBooks().filter(b => peek(b.id).want);
+  const favs = allBooks().filter(b => peek(b.id).fav);
+  const top = allBooks().filter(b => peek(b.id).rating >= 4).sort((a,b) => peek(b.id).rating - peek(a.id).rating);
+  $("#tab-quero").innerHTML = '<div class="grid g2">' +
+    win("+ Adicionar_livro.exe", "c-butter",
+      '<p class="small muted" style="margin-top:0">Achou um livro que está faltando? Adicione aqui. Ele entra na sua lista Quero Ler e no fim da trilha de ficção ou de não ficção, com status, notas, nota e timer, como qualquer outro.</p>' +
+      '<div class="grid g2" style="gap:10px"><label class="f span2">Título *<input class="inp" id="cT" placeholder="ex.: O Senhor dos Anéis"></label>' +
+      '<label class="f">Autor<input class="inp" id="cA"></label><label class="f">Tipo<select class="inp" id="cType"><option value="f">Ficção</option><option value="nf">Não ficção</option></select></label>' +
+      '<label class="f">Páginas<input class="inp" id="cP" type="number" min="0" placeholder="~300"></label><label class="f">Ano<input class="inp" id="cY" placeholder="1954"></label>' +
+      '<label class="f span2">Por que quero ler<textarea class="inp" id="cS" rows="2" placeholder="indicação, tema, conexão com algum vídeo…"></textarea></label></div>' +
+      '<div style="margin-top:10px"><button class="btn pri" onclick="addCustom()">+ Adicionar à biblioteca</button></div>') +
+    win("Quero_ler.txt — "+want.length, "c-mint", want.length ? '<div class="blist">'+want.map(bookRow).join("")+'</div>' : '<div class="empty">Clique no <b>✚</b> de qualquer livro para montar sua lista.</div>') +
+    win("♥ Favoritos — "+favs.length, "c-pink", favs.length ? '<div class="blist">'+favs.map(bookRow).join("")+'</div>' : '<div class="empty">Os livros que você marcar com ♥ aparecem aqui.</div>') +
+    win("★ Melhores avaliados", "c-lav", top.length ? '<div class="blist">'+top.map(bookRow).join("")+'</div>' : '<div class="empty">Dê 4 ou 5 estrelas a um livro e ele aparece aqui.</div>') +
+  '</div>';
+}
+
+/* =================== METAS & STATS =================== */
+function setSetting(k, v, min, max){ v = parseInt(v,10); if(isNaN(v)) return; v = Math.max(min, Math.min(max, v)); S.settings[k] = v; save(); renderStats(); }
+function projection(t){
+  const all = orderOf(t); const left = all.filter(b => !["read","dropped"].includes(peek(b.id).status));
+  const pages = left.reduce((a,b) => a + Math.max(0, (b.p||0) - (peek(b.id).page||0)), 0);
+  const perDay = (t === "nf" ? S.settings.ppNF * S.settings.goalNF : S.settings.ppF * S.settings.goalF) / 30;
+  const days = perDay > 0 ? Math.ceil(pages / perDay) : Infinity;
+  const end = isFinite(days) ? addDays(new Date(), days) : null;
+  const y = Math.floor(days/365), m = Math.round((days % 365) / 30.4);
+  return {total:all.length, read:all.filter(b => peek(b.id).status === "read").length, pages, perDay, days, end, human: isFinite(days) ? (y ? y+" ano"+(y>1?"s":"")+" e " : "")+m+(m===1?" mês":" meses") : "—"};
+}
+function renderStats(){
+  const books = allBooks(); const read = books.filter(b => peek(b.id).status === "read");
+  const year = new Date().getFullYear();
+  const readYear = read.filter(b => (peek(b.id).finished||"").startsWith(String(year)));
+  const byYear = {}; read.forEach(b => { const y = (peek(b.id).finished||"????").slice(0,4); byYear[y] = (byYear[y]||0)+1; });
+  let totNF = 0, totF = 0, daysRead = 0; Object.keys(S.log).forEach(d => { const a = daySecs(d,"nf"), c = daySecs(d,"f"); totNF += a; totF += c; if(a+c > 0) daysRead++; });
+  const pagesRead = books.reduce((a,b) => { const s = peek(b.id); return a + (s.status === "read" ? (b.p||0) : (s.page||0)); }, 0);
+  const rated = books.filter(b => peek(b.id).rating); const avg = rated.length ? (rated.reduce((a,b) => a+peek(b.id).rating, 0)/rated.length).toFixed(1) : "—";
+  const pNF = projection("nf"), pF = projection("f");
+  let bars = ""; for(let i = 29; i >= 0; i--){ const d = dk(addDays(new Date(), -i)); const a = daySecs(d,"nf")/60, c = daySecs(d,"f")/60; const max = Math.max(90, (S.settings.goalNF+S.settings.goalF)*1.5);
+    bars += '<div class="col" title="'+fmtDate(d)+': '+Math.round(a)+' min NF · '+Math.round(c)+' min F"><i class="nf" style="height:'+Math.min(100,a/max*100)*1.2+'px"></i><i class="fi" style="height:'+Math.min(100,c/max*100)*1.2+'px"></i></div>'; }
+  const jDays = Object.keys(S.journal).filter(d => S.journal[d] && S.journal[d].trim()).sort().reverse();
+  const projBlock = (p, t) => '<div class="kv"><span>Livros na trilha</span><b>'+p.read+' / '+p.total+'</b></div><div class="pbar '+(t==="nf"?"":"pink")+'" style="margin:6px 0 10px"><i style="width:'+(p.total?p.read/p.total*100:0)+'%"></i></div>' +
+    '<div class="kv"><span>Páginas restantes</span><b>~'+nf(p.pages)+'</b></div><div class="kv"><span>Ritmo considerado</span><b>~'+Math.round(p.perDay)+' págs/dia</b></div>' +
+    '<div class="kv"><span>Tempo para concluir</span><b>'+p.human+'</b></div><div class="kv"><span>Previsão de término</span><b>'+(p.end ? p.end.toLocaleDateString("pt-BR") : "—")+'</b></div>';
+  $("#tab-metas").innerHTML = '<div class="grid g2">' +
+    win("Metas.cfg", "c-sky",
+      '<div class="grid g2" style="gap:10px">' +
+      '<label class="f">Meta diária não ficção (min)<input class="inp" type="number" min="5" max="240" value="'+S.settings.goalNF+'" onchange="setSetting(\'goalNF\',this.value,5,240)"></label>' +
+      '<label class="f">Meta diária ficção (min)<input class="inp" type="number" min="5" max="240" value="'+S.settings.goalF+'" onchange="setSetting(\'goalF\',this.value,5,240)"></label>' +
+      '<label class="f">Págs. de não ficção em 30 min<input class="inp" type="number" min="3" max="80" value="'+S.settings.ppNF+'" onchange="setSetting(\'ppNF\',this.value,3,80)"></label>' +
+      '<label class="f">Págs. de ficção em 30 min<input class="inp" type="number" min="3" max="80" value="'+S.settings.ppF+'" onchange="setSetting(\'ppF\',this.value,3,80)"></label>' +
+      '<label class="f">Meta de livros por ano<input class="inp" type="number" min="1" max="200" value="'+S.settings.yearGoal+'" onchange="setSetting(\'yearGoal\',this.value,1,200)"></label>' +
+      '<label class="f">Som ao terminar sessão<select class="inp" onchange="S.settings.sound=this.value===\'1\';save()"><option value="1" '+(S.settings.sound?"selected":"")+'>Ligado</option><option value="0" '+(!S.settings.sound?"selected":"")+'>Desligado</option></select></label>' +
+      '</div><p class="small muted" style="margin-bottom:0">Dica: depois de algumas sessões, abra um livro e veja o “ritmo ≈ págs/30 min” calculado com o seu tempo real. Ajuste aqui para a projeção ficar precisa.</p>') +
+    win("Meta "+year, "c-butter",
+      '<div class="kpis" style="margin-top:0"><div class="kpi"><b>'+readYear.length+' / '+S.settings.yearGoal+'</b><span>livros em '+year+'</span></div><div class="kpi"><b>'+streak()+'</b><span>sequência atual</span></div><div class="kpi"><b>'+bestStreak()+'</b><span>melhor sequência</span></div></div>' +
+      '<div class="pbar butter" style="margin-top:12px"><i style="width:'+Math.min(100, readYear.length/S.settings.yearGoal*100)+'%"></i></div>' +
+      '<div class="kpis"><div class="kpi"><b>'+read.length+'</b><span>lidos no total</span></div><div class="kpi"><b>'+nf(pagesRead)+'</b><span>páginas lidas</span></div><div class="kpi"><b>'+avg+'</b><span>nota média</span></div><div class="kpi"><b>'+daysRead+'</b><span>dias com leitura</span></div></div>' +
+      '<div class="kv" style="margin-top:10px"><span>Tempo total em não ficção</span><b>'+fmtHM(totNF)+'</b></div><div class="kv"><span>Tempo total em ficção</span><b>'+fmtHM(totF)+'</b></div>') +
+    win("Projecao_nao_ficcao.log", "c-lav", projBlock(pNF, "nf")) +
+    win("Projecao_ficcao.log", "c-pink", projBlock(pF, "f")) +
+    win("Últimos 30 dias (minutos)", "c-mint span2", '<div class="bars">'+bars+'</div><div class="legend"><i style="background:var(--lav)"></i> não ficção &nbsp; <i style="background:var(--pink)"></i> ficção</div>') +
+    win("Lidos por ano", "c-sky", Object.keys(byYear).length ? Object.keys(byYear).sort().reverse().map(y => '<div class="kv"><span>'+(y==="????"?"sem data":y)+'</span><b>'+byYear[y]+'</b></div>').join("") : '<div class="muted small">Ainda nenhum livro concluído.</div>') +
+    win("Diario_de_leitura.log", "c-peach", jDays.length ? jDays.slice(0, 60).map(d => '<div class="blk" style="margin-top:10px"><h4>'+fmtDate(d)+'</h4><p style="white-space:pre-wrap">'+esc(S.journal[d])+'</p></div>').join("") : '<div class="muted small">As entradas do “Diário de hoje” aparecem aqui.</div>') +
+  '</div>';
+}
+
+/* =================== MAPA =================== */
+function renderMap(){
+  const chip = id => { const b = getBook(id); if(!b) return ""; const s = peek(id); return '<span class="chip click" onclick="openBook(\''+id+'\')">'+(s.status==="read"?"✓ ":"")+esc(b.t.split(" (")[0])+'</span>'; };
+  $("#tab-mapa").innerHTML =
+   win("Leia_me.txt — como este mapa foi feito", "c-peach",
+     '<p style="margin-top:0">Para montar o acervo, foram lidas as transcrições de <b>133 vídeos</b> do canal (todos os que estavam públicos, incluindo os que não parecem filosóficos pelo título). O Baka diz que tem “uma fórmula” e a aplica em todos os níveis da realidade: física, vida, mente, sociedade. O fio que une tudo é este: <b>não existem coisas isoladas, só relações e processos</b>. As contradições movem o mundo, e o Ocidente fragmentou essa visão.</p>' +
+     '<p class="small muted" style="margin-bottom:0">Ele mesmo avisa: “não sou especialista em nada”, muda de opinião e chegou a apagar vídeos antigos de filosofia. Os livros abaixo servem para você entender as fontes e também para <b>discordar</b> dele com propriedade. Os cards resumem as ideias com palavras próprias, a partir das transcrições.</p>') +
+   '<h2 class="sec">Os conceitos centrais</h2><div class="grid g2">' +
+   CONCEPTS.map((c,i) => '<div class="win concept" id="cc'+i+'"><div class="bar" style="background:'+["var(--lav)","var(--mint)","var(--pink)","var(--sky)","var(--butter)","var(--peach)"][i%6]+'"><span class="dots"><i></i><i></i><i></i></span><span>'+String(i+1).padStart(2,"0")+'.sys</span></div><div class="body"><h3><span class="ic">'+c.ic+'</span>'+esc(c.t)+'</h3><p>'+esc(c.txt)+'</p><div class="ctag">Para ler</div><div class="chips">'+c.b.map(chip).join("")+'</div><div class="ctag">Vídeos</div><div class="vlinks">'+c.v.map(v => '<a href="https://www.youtube.com/watch?v='+encodeURIComponent(v)+'" target="_blank" rel="noopener">'+esc(VIDEOS[v]||v)+'</a>').join("")+'</div></div></div>').join("") +
+   '</div><h2 class="sec">Vídeos com mais conteúdo filosófico</h2>' +
+   win("Playlist.m3u", "c-sky", '<div class="vlinks">'+Object.keys(VIDEOS).map(v => '<a href="https://www.youtube.com/watch?v='+encodeURIComponent(v)+'" target="_blank" rel="noopener">'+esc(VIDEOS[v])+'</a>').join("")+'</div>');
+}
+
+/* =================== BACKUP =================== */
+function renderBackup(){
+  const snaps = getSnaps();
+  let size = 0; try{ size = (localStorage.getItem(KEY)||"").length; }catch(e){}
+  $("#tab-backup").innerHTML = '<div class="grid g2">' +
+    win("💾 Disquete A — backup manual", "c-lav",
+      '<p style="margin-top:0">Baixa um arquivo <b>.json</b> com tudo: status, notas, citações, diário, tempo e metas. Guarde no Drive, num pendrive ou onde quiser.</p>' +
+      '<div class="row"><button class="btn pri" onclick="exportJSON()">⬇ Baixar backup (.json)</button><button class="btn" onclick="exportNotes()">⬇ Exportar anotações (.md)</button></div>' +
+      '<p class="small muted">Último backup baixado: <b>'+(S.lastExport ? new Date(S.lastExport).toLocaleString("pt-BR") : "nunca")+'</b></p>' +
+      '<div class="ctag">Restaurar de um arquivo</div><input type="file" accept=".json,application/json" class="inp" onchange="importJSON(this)">') +
+    win("💾 Disquete B — backup automático em arquivo", "c-mint",
+      (canFS
+        ? '<p style="margin-top:0">Escolha um arquivo uma única vez (de preferência dentro de uma pasta sincronizada, como Google Drive ou OneDrive). A cada mudança, a Biblioteca regrava esse arquivo sozinha. Ao reabrir o navegador, pode ser preciso clicar em <b>Reativar</b>, porque é uma regra de segurança do Chrome/Edge.</p><div id="fileStatus" style="margin-bottom:10px">'+fileStatusHTML()+'</div><div class="row"><button class="btn mint" onclick="linkFile()">'+(fileHandle ? "Trocar arquivo" : "Vincular arquivo de backup")+'</button>'+(fileHandle ? '<button class="btn" onclick="unlinkFile()">Desvincular</button>' : "")+'</div>'
+        : '<p style="margin-top:0">Seu navegador não permite gravar arquivos automaticamente (o recurso existe no Chrome e no Edge para computador). Use o <b>Disquete A</b> de vez em quando.</p>')) +
+    win("💾 Disquete C — cópias diárias automáticas", "c-butter",
+      '<p class="small muted" style="margin-top:0">Todo dia, na primeira vez que você usa a Biblioteca, ela guarda uma cópia de como tudo estava (últimos 7 dias). Serve para desfazer um erro.</p>' +
+      (snaps.length ? snaps.map((s,i) => '<div class="snap"><span>'+esc(s.d.length===10 ? fmtDate(s.d) : s.d)+' <span class="dim">· '+Math.round(s.data.length/1024)+' KB</span></span><button class="btn sm" onclick="restoreSnap('+i+')">restaurar</button></div>').reverse().join("") : '<div class="muted small">Nenhuma cópia ainda.</div>')) +
+    win("Como funciona offline", "c-sky",
+      '<ul class="tight"><li>Este arquivo <b>.html</b> é a plataforma inteira. Não precisa de internet, conta, login nem do Claude.</li><li>Tudo salva sozinho <b>neste navegador, neste computador</b>, a cada clique ou tecla (localStorage + IndexedDB).</li><li>Use sempre o <b>mesmo navegador</b>. Não use aba anônima e não limpe os “dados de sites”.</li><li>Para usar em outro PC ou celular, baixe o backup aqui e importe lá.</li><li>Os links dos vídeos são as únicas coisas que precisam de internet.</li></ul><p class="small dim">Dados ocupando ~'+Math.max(1,Math.round(size/1024))+' KB.</p>') +
+    win("⚠ Zona de perigo", "c-pink", '<p style="margin-top:0" class="small">Apaga tudo e recomeça do zero. Antes, uma cópia é guardada no Disquete C.</p><button class="btn danger" onclick="resetAll()">Apagar todos os dados</button>') +
+  '</div>';
+}
+
+/* =================== relógio / tick =================== */
+let lastDay = dk();
+function clock(){
+  const n = new Date();
+  $("#sysDate").textContent = pad(n.getDate())+" / "+pad(n.getMonth()+1)+" / "+n.getFullYear();
+  $("#sysTime").textContent = pad(n.getHours())+":"+pad(n.getMinutes());
+}
+setInterval(() => {
+  clock();
+  ["nf","f"].forEach(tr => { if(S.timer[tr].start && sessSecs(tr) >= goalSecs(tr)) sessionDone(tr); });
+  if(dk() !== lastDay){
+    // virou o dia: fecha o tempo corrente no dia anterior e recomeça a sessão
+    lastDay = dk(); ["nf","f"].forEach(tr => { if(S.timer[tr].start){ commit(tr, false); } });
+    save(); if(curTab === "hoje") renderToday();
+  }
+  tickUI();
+  const anyRun = S.timer.nf.start || S.timer.f.start;
+  if(anyRun && document.hidden){ const tr = S.timer.nf.start ? "nf" : "f"; document.title = "▶ "+fmtMMSS(goalSecs(tr)-sessSecs(tr))+" · Biblioteca de Beco"; }
+  else if(document.title.startsWith("▶")) document.title = "Biblioteca de Beco";
+}, 1000);
+
+/* =================== init =================== */
+async function init(){
+  clock(); setSaveUI("ok"); renderAll();
+  // se o localStorage estiver vazio mas o IndexedDB tiver dados (ex.: limpeza parcial), recupera
+  try{
+    if(!localStorage.getItem(KEY)){
+      const j = await idbGet("state");
+      if(j){ S = migrate(JSON.parse(j)); save(true); renderAll(); toast("Dados recuperados do armazenamento de reserva ✓"); }
+    }
+  }catch(e){}
+  if(canFS){
+    try{
+      const h = await idbGet("fileHandle");
+      if(h){ fileHandle = h; const p = await h.queryPermission({mode:"readwrite"}); fileStatus = p === "granted" ? "ok" : "perm"; renderBanner(); if(curTab === "backup") renderBackup(); }
+    }catch(e){}
+  }
+}
+init();
+</script>
+</body>
+</html>
