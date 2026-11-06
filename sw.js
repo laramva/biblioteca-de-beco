@@ -1,6 +1,6 @@
 // Service worker da Biblioteca de Beco: busca sempre a versão nova quando há internet
 // e cai na cópia guardada quando não há (assim o app abre offline no iPad/celular).
-const CACHE = "beco-v1";
+const CACHE = "beco-v2";
 const FILES = ["./", "./index.html", "./Biblioteca%20de%20Beco.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -12,8 +12,9 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const req = e.request;
   if(req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
-  const net = fetch(req).then(r => {
-    if(r.ok){ const cp = r.clone(); caches.open(CACHE).then(c => c.put(req, cp)); }
+  // páginas sempre conferem com o servidor (no-cache), para a versão nova chegar na hora
+  const net = (req.mode === "navigate" ? fetch(req.url, {cache:"no-cache", credentials:"same-origin"}) : fetch(req)).then(r => {
+    if(r.ok){ const cp = r.clone(); caches.open(CACHE).then(c => c.put(req.url.split("?")[0], cp)); }
     return r;
   });
   const fromCache = () => caches.match(req, {ignoreSearch:true}).then(r => r || caches.match("./Biblioteca%20de%20Beco.html"));

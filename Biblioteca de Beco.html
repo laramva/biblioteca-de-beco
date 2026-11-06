@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Biblioteca de Beco</title>
+<meta name="app-version" content="2026-11-05.3">
 <meta name="theme-color" content="#13101b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1983,6 +1984,30 @@ setInterval(() => {
   else if(document.title.startsWith("▶")) document.title = "Biblioteca de Beco";
 }, 1000);
 
+/* =================== atualização automática (site publicado) =================== */
+// Compara a versão desta página com a publicada; se mudou, salva e recarrega sozinha
+// (só quando você não está digitando). O cronômetro continua de onde estava.
+const UPDKEY = "bibliotecaDeBeco.updated";
+let lastUpdCheck = 0;
+async function checkUpdate(){
+  if(!/^https?:$/.test(location.protocol) || navigator.onLine === false) return;
+  lastUpdCheck = Date.now();
+  try{
+    const mine = document.querySelector('meta[name="app-version"]').content;
+    const html = await (await fetch(location.pathname + "?v=" + Date.now(), {cache:"no-store"})).text();
+    const m = html.match(/<meta name="app-version" content="([^"]+)">/);
+    if(!m || m[1] === mine) return;
+    if(isEditing()){ setTimeout(checkUpdate, 30000); return; }
+    let tried = null; try{ tried = sessionStorage.getItem(UPDKEY); }catch(e){}
+    if(tried === m[1]) return;   // já tentou recarregar para essa versão: evita ficar em loop
+    if(saveT){ clearTimeout(saveT); doSave(); }
+    try{ sessionStorage.setItem(UPDKEY, m[1]); }catch(e){}
+    location.replace(location.pathname + "?v=" + encodeURIComponent(m[1]));   // endereço novo = não pega cópia velha
+  }catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && Date.now() - lastUpdCheck > 120000) checkUpdate(); });
+setInterval(() => { if(!document.hidden) checkUpdate(); }, 1800000);
+
 /* =================== init =================== */
 async function init(){
   clock(); setSaveUI("ok"); renderAll();
@@ -2000,6 +2025,11 @@ async function init(){
     }catch(e){}
   }
   if(SY.token){ setSync("idle"); syncNow(); }
+  if(/[?&]v=/.test(location.search)){
+    try{ if(sessionStorage.getItem(UPDKEY) === document.querySelector('meta[name="app-version"]').content) toast("✦ Biblioteca atualizada para a versão nova"); }catch(e){}
+    history.replaceState(null, "", location.pathname);
+  }
+  setTimeout(checkUpdate, 5000);
   // no site publicado: ícone/instalação e funcionamento offline (service worker)
   if(/^https?:$/.test(location.protocol)){
     const l = document.createElement("link"); l.rel = "manifest"; l.href = "manifest.webmanifest"; document.head.appendChild(l);
