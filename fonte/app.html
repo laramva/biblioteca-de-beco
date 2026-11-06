@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Biblioteca de Beco</title>
-<meta name="app-version" content="2026-11-06.1">
+<meta name="app-version" content="2026-11-06.2">
 <meta name="theme-color" content="#13101b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -62,6 +62,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .savedot.err{background:#ff6b8a;box-shadow:0 0 6px #ff6b8a}
 .synctag{cursor:pointer;color:var(--mint);font-weight:600}
 .synctag.off{display:none}
+.synctag.login{color:var(--lav);text-decoration:underline dotted}
 .synctag.busy,.synctag.offline{color:var(--butter)}
 .synctag.err{color:#ff8fa8}
 ol.tight{margin:6px 0 10px;padding-left:20px} ol.tight li{margin:4px 0}
@@ -382,15 +383,17 @@ function idb(){
 async function idbGet(k){ const db = await idb(); return new Promise((res, rej) => { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
 async function idbSet(k, v){ const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction("kv","readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 
-/* ---- sincronização entre aparelhos (gist secreto no GitHub) ---- */
+/* ---- sincronização entre aparelhos (conta própria: e-mail e senha, guardada no Firebase) ---- */
 // Cada item (livro, livro adicionado, dia do log, dia do diário, configurações) guarda em S.mt a hora
 // da última edição. Ao sincronizar, vale a versão mais recente de cada item; itens apagados viram "lápide".
-const SYNCKEY = "bibliotecaDeBeco.sync";
-const GIST_FILE = "biblioteca-de-beco-sync.json";
-const GH = "https://api.github.com";
-let SY = {}; try{ SY = JSON.parse(localStorage.getItem(SYNCKEY) || "{}") || {}; }catch(e){ SY = {}; }
-let syncT = null, syncBusy = false, syncAgain = false, syncState = SY.token ? "idle" : "off", syncMsg = "";
-function storeSY(){ try{ if(SY.token) localStorage.setItem(SYNCKEY, JSON.stringify(SY)); else localStorage.removeItem(SYNCKEY); }catch(e){} }
+const FB = {apiKey:["AIza","SyBCI5fW1hVV","8Xo4tsZWbtYkUYP1acRXu28"].join(""), project:"biblioteca-de-beco"};
+const AUTHKEY = "bibliotecaDeBeco.conta";
+let AC = {}; try{ AC = JSON.parse(localStorage.getItem(AUTHKEY) || "{}") || {}; }catch(e){ AC = {}; }
+// sincronização antiga (gist do GitHub): lida uma única vez, para trazer os dados para a conta
+const SYNCKEY = "bibliotecaDeBeco.sync", GIST_FILE = "biblioteca-de-beco-sync.json";
+let OLD = {}; try{ OLD = JSON.parse(localStorage.getItem(SYNCKEY) || "{}") || {}; }catch(e){ OLD = {}; }
+let syncT = null, syncBusy = false, syncAgain = false, syncState = AC.uid ? "idle" : "off", syncMsg = "";
+function storeAC(){ try{ if(AC.uid) localStorage.setItem(AUTHKEY, JSON.stringify(AC)); else localStorage.removeItem(AUTHKEY); }catch(e){} }
 function syncItems(s){
   const m = {s:s.settings};
   Object.keys(s.books).forEach(id => m["b:"+id] = s.books[id]);
@@ -466,45 +469,67 @@ function devicesHTML(){
   const ks = Object.keys(d).filter(k => k === DEV_ID || (d[k].last || 0) > limit).sort((a, b) => (d[b].last || 0) - (d[a].last || 0));
   if(!ks.length) return "";
   return '<div class="ctag" style="margin-top:12px">Aparelhos sincronizados</div>' + ks.map(k => {
-    const mine = k === DEV_ID, t = mine && SY.last ? SY.last : d[k].last;
+    const mine = k === DEV_ID, t = mine && AC.last ? AC.last : d[k].last;
     return '<div class="snap"><span>' + (/iPad|iPhone|Celular/.test(d[k].name) ? "📱 " : "💻 ") + esc(d[k].name) + (mine ? ' <b style="color:var(--mint)">(este)</b>' : "") + '</span><span class="small dim">' + fmtAgo(t) + '</span></div>';
   }).join("") + '<p class="small dim" style="margin-bottom:0">Cada aparelho recebe tudo o que os outros mudaram até o horário da sincronia dele.</p>';
 }
-async function gh(path, opt){
-  opt = opt || {};
-  const headers = {"Authorization":"Bearer "+SY.token, "Accept":"application/vnd.github+json"};
-  if(opt.body) headers["Content-Type"] = "application/json";
-  const r = await fetch(GH + path, {method:opt.method || "GET", cache:"no-store", headers, body:opt.body ? JSON.stringify(opt.body) : undefined});
-  if(r.status === 401 || r.status === 403) throw new Error("token");
-  if(r.status === 404) throw new Error("404");
-  if(!r.ok) throw new Error("http "+r.status);
-  return r.json();
+/* ---- conta (Firebase Authentication e Firestore, pela API REST: funciona até sem internet no carregamento) ---- */
+async function fbAuth(path, body){
+  const r = await fetch("https://identitytoolkit.googleapis.com/v1/accounts:" + path + "?key=" + FB.apiKey, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error((j.error && j.error.message) || "HTTP_" + r.status);
+  return j;
 }
-async function findGist(){
-  for(let page = 1; page <= 10; page++){
-    const list = await gh("/gists?per_page=100&page="+page);
-    const g = list.find(x => x.files && x.files[GIST_FILE]);
-    if(g) return g.id;
-    if(list.length < 100) break;
-  }
-  return null;
+function setSession(j){
+  AC = {uid:j.localId || j.user_id, email:j.email || AC.email, refresh:j.refreshToken || j.refresh_token, idToken:j.idToken || j.id_token,
+        exp:Date.now() + Number(j.expiresIn || j.expires_in || 3600) * 1000, last:AC.last || 0};
+  storeAC();
 }
-async function readGist(){
-  const g = await gh("/gists/"+SY.gist);
-  const f = g.files && g.files[GIST_FILE]; if(!f) return null;
-  let txt = f.content;
-  if(f.truncated) txt = await (await fetch(f.raw_url, {cache:"no-store"})).text();
-  const o = JSON.parse(txt);
-  return o && o.state && typeof o.state.books === "object" ? o.state : null;
+async function idToken(){
+  if(AC.idToken && Date.now() < (AC.exp || 0) - 120000) return AC.idToken;
+  const r = await fetch("https://securetoken.googleapis.com/v1/token?key=" + FB.apiKey, {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"grant_type=refresh_token&refresh_token=" + encodeURIComponent(AC.refresh || "")});
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(r.status >= 500 ? "HTTP_" + r.status : "SESSION");
+  setSession(j);
+  return AC.idToken;
 }
-function writeGist(s){ return gh("/gists/"+SY.gist, {method:"PATCH", body:{files:{[GIST_FILE]:{content:JSON.stringify(syncPayload(s))}}}}); }
+function docURL(){ return "https://firestore.googleapis.com/v1/projects/" + FB.project + "/databases/(default)/documents/users/" + AC.uid; }
+async function cloudRead(){
+  const r = await fetch(docURL(), {cache:"no-store", headers:{"Authorization":"Bearer " + await idToken()}});
+  if(r.status === 404) return {state:null, updateTime:null};
+  if(r.status === 401 || r.status === 403) throw new Error("SESSION");
+  if(!r.ok) throw new Error("HTTP_" + r.status);
+  const j = await r.json(), txt = j.fields && j.fields.data && j.fields.data.stringValue, o = txt ? JSON.parse(txt) : null;
+  return {state:o && o.state && typeof o.state.books === "object" ? o.state : null, updateTime:j.updateTime || null};
+}
+// grava só se a nuvem não mudou desde a leitura (senão devolve false e a sincronia tenta de novo)
+async function cloudWrite(s, updateTime){
+  const pre = updateTime ? "currentDocument.updateTime=" + encodeURIComponent(updateTime) : "currentDocument.exists=false";
+  const r = await fetch(docURL() + "?" + pre, {method:"PATCH", headers:{"Authorization":"Bearer " + await idToken(), "Content-Type":"application/json"},
+    body:JSON.stringify({fields:{data:{stringValue:JSON.stringify(syncPayload(s))}, updated:{timestampValue:new Date().toISOString()}}})});
+  if(r.ok) return true;
+  const j = await r.json().catch(() => ({})), st = j.error && j.error.status;
+  if(st === "FAILED_PRECONDITION" || st === "ALREADY_EXISTS" || st === "NOT_FOUND") return false;
+  if(r.status === 401 || r.status === 403) throw new Error("SESSION");
+  throw new Error("HTTP_" + r.status);
+}
+async function readOldGist(){   // undefined = sem internet (tenta depois); null = nada para trazer
+  try{
+    const r = await fetch("https://api.github.com/gists/" + OLD.gist, {cache:"no-store", headers:{"Authorization":"Bearer " + OLD.token, "Accept":"application/vnd.github+json"}});
+    if(!r.ok) return null;
+    const g = await r.json(), f = g.files && g.files[GIST_FILE]; if(!f) return null;
+    const txt = f.truncated ? await (await fetch(f.raw_url, {cache:"no-store"})).text() : f.content;
+    const o = JSON.parse(txt);
+    return o && o.state && typeof o.state.books === "object" ? o.state : null;
+  }catch(e){ return e instanceof TypeError ? undefined : null; }
+}
 function isEditing(){
   const a = document.activeElement; if(!a) return false;
   return a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && !/^(checkbox|radio|file|button|range)$/.test(a.type));
 }
-function queueSync(ms){ if(!SY.token) return; clearTimeout(syncT); syncT = setTimeout(syncNow, ms == null ? 3000 : ms); }
+function queueSync(ms){ if(!AC.uid) return; clearTimeout(syncT); syncT = setTimeout(syncNow, ms == null ? 3000 : ms); }
 async function syncNow(manual){
-  if(!SY.token) return;
+  if(!AC.uid) return;
   clearTimeout(syncT);
   if(syncBusy){ syncAgain = true; return; }
   if(manual !== true && isEditing()){ queueSync(6000); return; }
@@ -512,18 +537,16 @@ async function syncNow(manual){
   syncBusy = true; setSync("busy");
   try{
     if(saveT){ clearTimeout(saveT); saveT = null; doSave(); clearTimeout(syncT); }
-    if(!SY.gist){ SY.gist = await findGist(); storeSY(); }
-    let remote = null;
-    if(SY.gist){
-      try{ remote = await readGist(); }
-      catch(e){ if(e.message !== "404") throw e; SY.gist = null; }
+    if(OLD.token && OLD.gist){
+      const old = await readOldGist();
+      if(old !== undefined){
+        if(old) applyMerged(mergeStates(S, migrate(old)));
+        OLD = {}; try{ localStorage.removeItem(SYNCKEY); }catch(e){}
+      }
     }
-    if(!SY.gist){
-      markDevice(S); doSave(true);
-      const g = await gh("/gists", {method:"POST", body:{description:"Biblioteca de Beco — sincronização (não apague)", public:false, files:{[GIST_FILE]:{content:JSON.stringify(syncPayload(S))}}}});
-      SY.gist = g.id;
-    } else {
-      const R = remote ? migrate(remote) : null;
+    for(let tries = 0; tries < 4; tries++){
+      const cloud = await cloudRead();
+      const R = cloud.state ? migrate(cloud.state) : null;
       const merged = R ? mergeStates(S, R) : S, mfp = fingerprint(merged);
       const me = (merged.devices || {})[DEV_ID];
       const stale = !me || me.name !== deviceName() || Date.now() - (me.last || 0) > 600000;
@@ -531,12 +554,13 @@ async function syncNow(manual){
       if(stale || changed) markDevice(merged);
       if(R && mfp !== fingerprint(S)) applyMerged(merged);
       else { S.devices = merged.devices; doSave(true); }
-      if(stale || changed) await writeGist(merged);
+      if(!(stale || changed) || await cloudWrite(merged, cloud.updateTime)) break;
     }
-    SY.last = Date.now(); storeSY(); setSync("ok");
+    AC.last = Date.now(); storeAC(); setSync("ok");
   }catch(e){
-    if(navigator.onLine === false || e instanceof TypeError) setSync("offline");
-    else setSync("err", e.message === "token" ? "O GitHub recusou o código (token). Gere outro e conecte de novo." : "Falha ao falar com o GitHub ("+e.message+").");
+    if(e.message === "SESSION"){ const em = AC.email; AC = {}; storeAC(); AC.email = em; setSync("off"); renderBanner(); if(curTab === "backup") renderBackup(); toast("Entre de novo na sua conta para continuar sincronizando."); }
+    else if(navigator.onLine === false || e instanceof TypeError) setSync("offline");
+    else setSync("err", "Não consegui sincronizar agora (" + e.message + "). Tento de novo sozinha daqui a pouco.");
   }
   syncBusy = false;
   if(syncAgain){ syncAgain = false; queueSync(500); }
@@ -549,44 +573,77 @@ function setSync(st, msg){
   syncState = st; syncMsg = msg || "";
   const el = document.getElementById("syncTag");
   if(el){
-    const t = SY.last ? new Date(SY.last).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) : "";
-    el.className = "synctag " + st;
-    el.textContent = !SY.token ? "" : st === "busy" ? "☁ SINCRONIZANDO…" : st === "offline" ? "☁ OFFLINE · SINCRONIZA DEPOIS" : st === "err" ? "☁ ERRO NA SINCRONIA" : "☁ SINCRONIZADO " + t;
+    const t = AC.last ? new Date(AC.last).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) : "";
+    el.className = "synctag " + (AC.uid ? st : "login");
+    el.textContent = !AC.uid ? "☁ ENTRAR PARA SINCRONIZAR" : st === "busy" ? "☁ SINCRONIZANDO…" : st === "offline" ? "☁ OFFLINE · SINCRONIZA DEPOIS" : st === "err" ? "☁ ERRO NA SINCRONIA" : "☁ SINCRONIZADO " + t;
   }
   const box = document.getElementById("syncStatus"); if(box) box.innerHTML = syncStatusHTML();
 }
 function syncStatusHTML(){
-  const last = SY.last ? new Date(SY.last).toLocaleString("pt-BR") : "ainda não";
+  const last = AC.last ? new Date(AC.last).toLocaleString("pt-BR") : "ainda não";
   if(syncState === "err") return '<span style="color:#ff8fa8">'+esc(syncMsg)+'</span>';
   if(syncState === "offline") return '<span style="color:var(--butter)">Sem internet agora. Tudo continua salvo aqui e sincroniza quando a conexão voltar.</span>';
   if(syncState === "busy") return '<span style="color:var(--butter)">Sincronizando…</span>';
-  return '<span style="color:var(--mint)">● Conectado</span> <span class="dim">— última sincronia: '+last+'</span>' + devicesHTML();
+  return '<span style="color:var(--mint)">● Sincronizado</span> <span class="dim">— última vez: '+last+'</span>' + devicesHTML();
 }
-async function connectSync(){
-  const inp = $("#syncTok"), t = (inp ? inp.value : "").trim();
-  if(!/^(ghp_|github_pat_)\w{20,}$/.test(t)){ toast("Isso não parece um token do GitHub (começa com ghp_)."); return; }
-  SY = {token:t}; setSync("busy");
-  try{ const u = await gh("/user"); SY.user = u.login; }
-  catch(e){
-    SY = {}; storeSY(); setSync("off"); renderBackup();
-    alert(e.message === "token" ? "O GitHub recusou esse token. Confira se copiou inteiro e se marcou a permissão “gist”." : "Não consegui falar com o GitHub. Confira a internet e tente de novo.");
-    return;
-  }
-  storeSY(); await syncNow(true);
-  renderBackup(); renderBanner();
-  if(syncState === "ok") toast("Sincronização ligada ✓");
+const AUTH_ERR = {EMAIL_EXISTS:"Já existe uma conta com esse e-mail. Toque em “Já tenho conta”.", EMAIL_NOT_FOUND:"E-mail ou senha incorretos.", INVALID_PASSWORD:"E-mail ou senha incorretos.",
+  INVALID_LOGIN_CREDENTIALS:"E-mail ou senha incorretos.", INVALID_EMAIL:"Esse e-mail não parece válido.", MISSING_PASSWORD:"Digite a senha.", USER_DISABLED:"Essa conta foi desativada.",
+  WEAK_PASSWORD:"Senha fraca: use pelo menos 6 caracteres.", TOO_MANY_ATTEMPTS_TRY_LATER:"Muitas tentativas seguidas. Espere alguns minutos e tente de novo."};
+function authMsg(e){
+  if(e instanceof TypeError) return "Sem internet agora. Conecte e tente de novo.";
+  const code = String(e && e.message || "").split(/[\s:]/)[0];
+  return AUTH_ERR[code] || "Não deu certo (" + code + "). Tente de novo.";
 }
-function disconnectSync(){
-  if(!confirm("Desligar a sincronização neste aparelho? Seus dados continuam aqui e na nuvem; só param de ser trocados.")) return;
-  clearTimeout(syncT); SY = {}; storeSY(); setSync("off"); renderBackup(); renderBanner();
+let acMode = "up";
+async function account(kind){
+  const email = ($("#acEmail").value || "").trim(), pass = $("#acPass").value || "", out = $("#acMsg");
+  if(!/^\S+@\S+\.\S+$/.test(email)){ out.textContent = "Digite seu e-mail."; return; }
+  if(pass.length < 6){ out.textContent = "A senha precisa ter pelo menos 6 caracteres."; return; }
+  if(kind === "up" && pass !== ($("#acPass2").value || "")){ out.textContent = "As duas senhas não estão iguais."; return; }
+  out.textContent = kind === "up" ? "Criando sua conta…" : "Entrando…";
+  try{
+    const j = await fbAuth(kind === "up" ? "signUp" : "signInWithPassword", {email, password:pass, returnSecureToken:true});
+    AC = {}; setSession(j);
+    renderBackup(); renderBanner();
+    await syncNow(true);
+    renderBackup();
+    if(syncState === "ok") toast(kind === "up" ? "Conta criada ✓ Seus dados já estão na nuvem." : "Pronto ✓ Seus dados foram sincronizados.");
+  }catch(e){ const o = $("#acMsg"); if(o) o.textContent = authMsg(e); }
+}
+async function resetPassword(){
+  const email = ($("#acEmail").value || "").trim(), out = $("#acMsg");
+  if(!/^\S+@\S+\.\S+$/.test(email)){ out.textContent = "Digite seu e-mail no campo acima e toque de novo em “Esqueci a senha”."; return; }
+  try{ await fbAuth("sendOobCode", {requestType:"PASSWORD_RESET", email}); out.textContent = "Mandei um link para criar uma senha nova para " + email + " (confira também o spam)."; }
+  catch(e){ out.textContent = authMsg(e); }
+}
+function logout(){
+  if(!confirm("Sair da conta neste aparelho? Seus dados continuam aqui e na nuvem; só param de ser trocados até você entrar de novo.")) return;
+  clearTimeout(syncT); const em = AC.email; AC = {}; storeAC(); AC.email = em; setSync("off"); renderBackup(); renderBanner();
+}
+function accountHTML(){
+  if(AC.uid) return '<p style="margin-top:0">Conectado como <b>'+esc(AC.email || "")+'</b>. Em qualquer aparelho, abra a Biblioteca e entre com esse e-mail e senha. Sincroniza sozinho ao abrir, alguns segundos depois de cada mudança e a cada minuto.</p>' +
+    '<div id="syncStatus" style="margin-bottom:10px">'+syncStatusHTML()+'</div>' +
+    '<div class="row"><button class="btn pri" onclick="syncNow(true)">⟳ Sincronizar agora</button><button class="btn" onclick="logout()">Sair neste aparelho</button></div>' +
+    '<p class="small dim">Se a mesma coisa for editada em dois aparelhos sem internet, fica a edição mais recente.</p>';
+  const up = acMode === "up";
+  return '<p style="margin-top:0">Crie sua conta <b>uma vez</b>. Depois, em qualquer aparelho (PC, iPad, celular), é só entrar com o mesmo e-mail e senha.</p>' +
+    '<div class="row" style="margin-bottom:10px"><button class="btn'+(up ? " pri" : "")+'" onclick="acMode=\'up\';renderBackup()">Criar conta</button><button class="btn'+(up ? "" : " pri")+'" onclick="acMode=\'in\';renderBackup()">Já tenho conta</button></div>' +
+    '<form onsubmit="event.preventDefault();account(\''+(up ? "up" : "in")+'\')" style="display:grid;gap:8px;max-width:420px">' +
+    '<input id="acEmail" class="inp" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="seu e-mail" value="'+esc(AC.email || "")+'">' +
+    '<input id="acPass" class="inp" type="password" autocomplete="'+(up ? "new-password" : "current-password")+'" placeholder="'+(up ? "crie uma senha (mínimo 6)" : "sua senha")+'">' +
+    (up ? '<input id="acPass2" class="inp" type="password" autocomplete="new-password" placeholder="repita a senha">' : "") +
+    '<button class="btn pri" type="submit">'+(up ? "Criar conta e sincronizar" : "Entrar e sincronizar")+'</button></form>' +
+    '<div id="acMsg" class="small" style="margin-top:8px;color:var(--butter)"></div>' +
+    (up ? "" : '<p class="small"><a href="#" onclick="event.preventDefault();resetPassword()">Esqueci a senha</a></p>') +
+    '<p class="small dim">O que você já marcou neste aparelho é mantido e juntado com o que estiver na conta.</p>';
 }
 document.addEventListener("visibilitychange", () => {
-  if(!SY.token) return;
-  if(document.visibilityState === "visible"){ if(!SY.last || Date.now() - SY.last > 15000) queueSync(300); }
+  if(!AC.uid) return;
+  if(document.visibilityState === "visible"){ if(!AC.last || Date.now() - AC.last > 15000) queueSync(300); }
   else if(saveT || syncT) syncNow(true);
 });
 window.addEventListener("online", () => queueSync(500));
-setInterval(() => { if(SY.token && !document.hidden && !syncBusy && (!SY.last || Date.now() - SY.last > 60000)) syncNow(); }, 15000);
+setInterval(() => { if(AC.uid && !document.hidden && !syncBusy && (!AC.last || Date.now() - AC.last > 60000)) syncNow(); }, 15000);
 
 /* ---- salvar ---- */
 let saveT = null, lastSaveOk = true;
@@ -854,7 +911,7 @@ function renderTabs(){
 function go(tab){
   curTab = tab; try{ localStorage.setItem(UIKEY, JSON.stringify({tab})); }catch(e){}
   document.querySelectorAll("main > section").forEach(s => s.classList.toggle("hide", s.dataset.tab !== tab));
-  renderTabs(); renderTab(tab); window.scrollTo({top:0});
+  renderTabs(); renderTab(tab); renderBanner(); window.scrollTo({top:0});
 }
 function renderTab(tab){
   if(tab === "hoje") renderToday();
@@ -877,7 +934,9 @@ function renderBanner(){
   if(!storageOK) h += '<div class="banner err"><b>Atenção:</b> este navegador está bloqueando o armazenamento local (modo anônimo ou dados de site bloqueados). Seus dados podem se perder ao fechar. Use a aba Backup para exportar.</div>';
   const days = S.lastExport ? (Date.now() - S.lastExport) / 864e5 : null;
   const hasData = Object.keys(S.books).length || Object.keys(S.log).length;
-  if(hasData && !fileHandle && !SY.token && (days === null || days > 14)) h += '<div class="banner">💾 '+(days === null ? "Você ainda não fez nenhum backup." : "Seu último backup tem "+Math.floor(days)+" dias.")+' <button class="btn sm pri" onclick="exportJSON()">Baixar backup agora</button> <button class="btn sm" onclick="go(\'backup\')">Opções</button></div>';
+  let hideLogin = false; try{ hideLogin = sessionStorage.getItem("bibliotecaDeBeco.semLogin") === "1"; }catch(e){}
+  if(!AC.uid && !hideLogin && curTab !== "backup") h += '<div class="banner">☁ Use a Biblioteca em qualquer aparelho com os mesmos dados: <button class="btn sm pri" onclick="acMode=\'up\';go(\'backup\')">Criar conta</button> <button class="btn sm" onclick="acMode=\'in\';go(\'backup\')">Entrar</button> <button class="btn sm" onclick="try{sessionStorage.setItem(\'bibliotecaDeBeco.semLogin\',\'1\')}catch(e){};renderBanner()">agora não</button></div>';
+  if(hasData && !fileHandle && !AC.uid && (days === null || days > 14)) h += '<div class="banner">💾 '+(days === null ? "Você ainda não fez nenhum backup." : "Seu último backup tem "+Math.floor(days)+" dias.")+' <button class="btn sm pri" onclick="exportJSON()">Baixar backup agora</button> <button class="btn sm" onclick="go(\'backup\')">Opções</button></div>';
   if(fileHandle && fileStatus === "perm") h += '<div class="banner">O backup automático em arquivo precisa ser reativado nesta sessão. <button class="btn sm pri" onclick="reconnectFile()">Reativar</button></div>';
   el.innerHTML = h;
 }
@@ -1218,24 +1277,12 @@ function renderMap(){
 function renderBackup(){
   const snaps = getSnaps();
   let size = 0; try{ size = (localStorage.getItem(KEY)||"").length; }catch(e){}
-  const tokLink = "https://github.com/settings/tokens/new?scopes=gist&description=Biblioteca%20de%20Beco";
   const iosSafari = isIOS() && !isStandalone();
   $("#tab-backup").innerHTML = '<div class="grid g2">' +
-    win("☁ Disquete D — sincronizar PC ↔ iPad", "c-sky",
-      (iosSafari ? '<div class="banner" style="margin:0 0 12px">⚠ Você está no <b>Safari</b>. O ícone da tela de início guarda os dados separado do Safari: feche aqui e faça tudo <b>abrindo pelo ícone</b>.</div>' : "") +
-      (location.protocol === "file:" ? '<div class="banner" style="margin:0 0 12px">Você está no <b>arquivo da pasta</b>. Conecte aqui uma vez para mandar o que já marcou para a nuvem. Depois disso, no PC, use o site: <a href="https://laramva.github.io/biblioteca-de-beco/" target="_blank" rel="noopener">laramva.github.io/biblioteca-de-beco</a>.</div>' : "") +
-      (SY.token
-        ? '<p style="margin-top:0">Este aparelho está sincronizando com a sua conta do GitHub'+(SY.user ? ' (<b>'+esc(SY.user)+'</b>)' : "")+'. Sincroniza sozinho ao abrir, alguns segundos depois de cada mudança e a cada minuto.</p>' +
-          '<div id="syncStatus" style="margin-bottom:10px">'+syncStatusHTML()+'</div>' +
-          '<div class="row"><button class="btn pri" onclick="syncNow(true)">⟳ Sincronizar agora</button><button class="btn" onclick="disconnectSync()">Desligar neste aparelho</button></div>' +
-          '<p class="small dim">Se o mesmo livro for editado em dois aparelhos sem internet, fica a edição mais recente. Os dados ficam num gist secreto (não aparece no seu perfil)'+(SY.gist ? ': <a href="https://gist.github.com/'+esc(SY.gist)+'" target="_blank" rel="noopener">ver gist</a>' : "")+'.</p>'
-        : '<p style="margin-top:0">Deixa PC, iPad e celular com os mesmos dados: status, notas, citações, diário, tempo e metas. Os dados ficam num <b>gist secreto</b> da sua conta do GitHub, que não aparece no seu perfil.</p>' +
-          '<ol class="tight"><li>Com o GitHub logado, abra <a href="'+tokLink+'" target="_blank" rel="noopener">este link</a>. Em <b>Expiration</b>, escolha <b>No expiration</b>. Role até o fim e clique em <b>Generate token</b>.</li>' +
-          '<li>Copie o código que aparece (começa com <code>ghp_</code>), cole aqui embaixo e clique em <b>Conectar</b>.</li>' +
-          '<li>Nos outros aparelhos, abra a Biblioteca, venha nesta aba e cole <b>o mesmo código</b>. O GitHub só mostra o código uma vez, então guarde-o (por exemplo, nas Notas).</li></ol>' +
-          '<div class="row"><input id="syncTok" class="inp" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ghp_…" style="flex:1;min-width:180px" onkeydown="if(event.key===\'Enter\')connectSync()"><button class="btn pri" onclick="connectSync()">Conectar</button></div>' +
-          '<p class="small dim">O código fica salvo só neste aparelho e só dá acesso aos seus gists. Não mande para ninguém.</p>'
-        )) +
+    win("☁ Disquete D — sua conta (sincroniza em qualquer aparelho)", "c-sky",
+      (iosSafari ? '<div class="banner" style="margin:0 0 12px">⚠ Você está no <b>Safari</b>. Se você usa a Biblioteca pelo ícone da tela de início, entre na conta <b>por lá</b>: o ícone guarda os dados separado do Safari.</div>' : "") +
+      (location.protocol === "file:" ? '<div class="banner" style="margin:0 0 12px">Você está no <b>arquivo da pasta</b>. Entre na conta aqui uma vez para mandar o que já marcou para a nuvem. Depois, no PC, use o site: <a href="https://laramva.github.io/biblioteca-de-beco/" target="_blank" rel="noopener">laramva.github.io/biblioteca-de-beco</a>.</div>' : "") +
+      accountHTML()) +
     win("💾 Disquete A — backup manual", "c-lav",
       '<p style="margin-top:0">Baixa um arquivo <b>.json</b> com tudo: status, notas, citações, diário, tempo e metas. Guarde no Drive, num pendrive ou onde quiser.</p>' +
       '<div class="row"><button class="btn pri" onclick="exportJSON()">⬇ Baixar backup (.json)</button><button class="btn" onclick="exportNotes()">⬇ Exportar anotações (.md)</button></div>' +
@@ -1315,7 +1362,8 @@ async function init(){
       if(h){ fileHandle = h; const p = await h.queryPermission({mode:"readwrite"}); fileStatus = p === "granted" ? "ok" : "perm"; renderBanner(); if(curTab === "backup") renderBackup(); }
     }catch(e){}
   }
-  if(SY.token){ setSync("idle"); syncNow(); }
+  setSync(AC.uid ? "idle" : "off");
+  if(AC.uid) syncNow();
   if(/[?&]v=/.test(location.search)){
     try{ if(sessionStorage.getItem(UPDKEY) === document.querySelector('meta[name="app-version"]').content) toast("✦ Biblioteca atualizada para a versão nova"); }catch(e){}
     history.replaceState(null, "", location.pathname);
