@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Biblioteca de Beco</title>
-<meta name="app-version" content="2026-11-06.2">
+<meta name="app-version" content="2026-11-06.3">
 <meta name="theme-color" content="#13101b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -37,6 +37,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:18px 16px 60px}
 a{color:var(--sky)}
 button,input,select,textarea{font:inherit;color:inherit}
+button,.btn,.ib,.tab,a{touch-action:manipulation}
 :focus-visible{outline:2px solid var(--butter);outline-offset:2px}
 
 /* ---------- header ---------- */
@@ -197,7 +198,7 @@ label.f .inp{font:14px var(--sans);text-transform:none;letter-spacing:0;color:va
 .empty{padding:26px;text-align:center;color:var(--muted);border:2px dashed var(--line);border-radius:12px}
 
 /* ---------- modal ---------- */
-.mback{position:fixed;inset:0;background:rgba(8,6,14,.72);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:28px 12px;overflow-y:auto}
+.mback{position:fixed;inset:0;background:rgba(8,6,14,.72);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:28px 12px calc(28px + env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .modal{width:100%;max-width:780px}
 .modal h3{margin:0 0 4px;font-size:22px;line-height:1.25}
 .modal .sub{color:var(--muted);margin-bottom:8px}
@@ -253,6 +254,12 @@ ul.tight{margin:6px 0 0;padding-left:18px} ul.tight li{margin:3px 0}
   .num{width:38px;height:38px;font-size:12px}
 }
 @media print{ body::before{display:none} .tabs,.toast{display:none} }
+/* telas de toque (iPad/celular): campos com 16px para o iOS não dar zoom ao tocar, e alvos maiores */
+@media (pointer:coarse){
+  .inp,select.inp,textarea.inp,label.f .inp,input,select,textarea{font-size:16px}
+  .btn.sm{padding:7px 11px;font-size:13px}
+  .toast{bottom:calc(22px + env(safe-area-inset-bottom))}
+}
 </style>
 </head>
 <body>
@@ -1318,8 +1325,23 @@ async function syncNow(manual){
 }
 function applyMerged(m){
   S = m; shadow = itemJSON(S);   // veio de outro aparelho: não conta como edição local
-  doSave(true); renderAll();
+  doSave(true); safeRender();
 }
+// Redesenhar a tela apaga o campo em que se está digitando (no iPad o teclado fica "preso").
+// Então, com o teclado aberto ou o app em segundo plano, a tela só é redesenhada depois.
+let pendingRender = false;
+function safeRender(){
+  if(isEditing() || document.hidden){ pendingRender = true; return; }
+  pendingRender = false; renderAll();
+}
+document.addEventListener("focusout", () => setTimeout(() => { if(pendingRender) safeRender(); }, 150));
+setInterval(() => { if(pendingRender) safeRender(); }, 5000);
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "hidden"){
+    // no iOS, sair do app com um campo focado deixa o teclado travado ao voltar
+    if(isIOS() && isEditing()){ if(saveT){ clearTimeout(saveT); doSave(); } document.activeElement.blur(); }
+  } else if(pendingRender) setTimeout(safeRender, 300);
+});
 function setSync(st, msg){
   syncState = st; syncMsg = msg || "";
   const el = document.getElementById("syncTag");
@@ -1483,6 +1505,12 @@ function fileStatusHTML(){
 }
 function download(name, text, type){
   const blob = new Blob([text], {type:type || "application/json"});
+  // no iPad/iPhone (principalmente pelo ícone da tela de início) o download comum pode abrir uma tela sem botão de voltar:
+  // lá usamos a folha de compartilhar, que tem "Salvar em Arquivos"
+  if(isIOS() && navigator.canShare){
+    const file = new File([blob], name, {type:blob.type});
+    if(navigator.canShare({files:[file]})){ navigator.share({files:[file], title:name}).catch(() => {}); return; }
+  }
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
@@ -1741,13 +1769,17 @@ function timerHTML(tr){
     '<div><div class="tline"><span>Hoje</span><span id="td-'+tr+'"></span></div><div class="pbar'+(tr==="f"?" pink":"")+'"><i id="tb-'+tr+'bar"></i></div></div>' +
     '<div class="row small" style="justify-content:space-between"><span class="dim mono">Ajuste manual:</span><span class="row"><button class="btn sm" onclick="adjust(\''+tr+'\',-5)">−5</button><button class="btn sm" onclick="adjust(\''+tr+'\',5)">+5</button><button class="btn sm" onclick="adjust(\''+tr+'\',15)">+15</button><button class="btn sm" onclick="adjust(\''+tr+'\',30)">+30</button></span></div>' +
     (bk ? '<div style="border-top:2px dashed var(--line);padding-top:10px"><div class="tbook">'+esc(bk.t)+'</div><div class="ba">'+esc(bk.a||"")+'</div>' +
-      '<div class="row small" style="margin-top:6px">Parei na página <input class="inp" type="number" min="0" '+(bk.p?'max="'+bk.p+'"':"")+' style="width:86px" value="'+(peek(id).page||0)+'" onchange="setPage(\''+id+'\',this.value)"> de '+(bk.p||"?")+' <button class="btn sm" onclick="openBook(\''+id+'\')">abrir / anotar</button></div>' +
+      '<div class="row small" style="margin-top:6px">Parei na página <input class="inp" type="number" inputmode="numeric" min="0" '+(bk.p?'max="'+bk.p+'"':"")+' style="width:86px" value="'+(peek(id).page||0)+'" onchange="setPage(\''+id+'\',this.value)"> de '+(bk.p||"?")+' <button class="btn sm" onclick="openBook(\''+id+'\')">abrir / anotar</button></div>' +
       '<div class="minibar" style="max-width:none"><i style="width:'+pct(id)+'%"></i></div></div>' : "") +
   '</div>';
 }
 function renderTimers(){
   if(curTab !== "hoje") return;
-  ["nf","f"].forEach(tr => { const el = document.getElementById("tw-"+tr); if(el) el.innerHTML = timerHTML(tr); });
+  ["nf","f"].forEach(tr => {
+    const el = document.getElementById("tw-"+tr); if(!el) return;
+    if(isEditing() && el.contains(document.activeElement)){ el.addEventListener("focusout", () => setTimeout(renderTimers, 150), {once:true}); return; }   // não apaga o campo em uso
+    el.innerHTML = timerHTML(tr);
+  });
   tickUI();
 }
 function tickUI(){
@@ -1869,7 +1901,7 @@ function renderList(t, onlyList){
 /* =================== MODAL =================== */
 let openId = null;
 function openBook(id){ openId = id; renderModal(); document.body.style.overflow = "hidden"; }
-function closeModal(){ openId = null; $("#modalRoot").innerHTML = ""; document.body.style.overflow = ""; refresh(true); }
+function closeModal(){ openId = null; modalShownId = null; $("#modalRoot").innerHTML = ""; document.body.style.overflow = ""; refresh(true); }
 document.addEventListener("keydown", e => { if(e.key === "Escape" && openId) closeModal(); });
 function renderModal(){
   const id = openId; const b = getBook(id); if(!b){ closeModal(); return; }
@@ -1888,10 +1920,12 @@ function renderModal(){
   const edit = b.custom ? '<div class="blk"><h4>Editar livro adicionado</h4><div class="grid g2">' +
       '<label class="f">Título<input class="inp" value="'+esc(b.t)+'" onchange="editCustom(\''+id+'\',\'t\',this.value)"></label>' +
       '<label class="f">Autor<input class="inp" value="'+esc(b.a||"")+'" onchange="editCustom(\''+id+'\',\'a\',this.value)"></label>' +
-      '<label class="f">Páginas<input class="inp" type="number" min="0" value="'+(b.p||"")+'" onchange="editCustom(\''+id+'\',\'p\',this.value)"></label>' +
+      '<label class="f">Páginas<input class="inp" type="number" inputmode="numeric" min="0" value="'+(b.p||"")+'" onchange="editCustom(\''+id+'\',\'p\',this.value)"></label>' +
       '<label class="f">Tipo<select class="inp" onchange="editCustom(\''+id+'\',\'type\',this.value)"><option value="nf" '+(b.type==="nf"?"selected":"")+'>Não ficção</option><option value="f" '+(b.type==="f"?"selected":"")+'>Ficção</option></select></label>' +
       '<label class="f span2">Por que quero ler / do que se trata<textarea class="inp" rows="2" onchange="editCustom(\''+id+'\',\'s\',this.value)">'+esc(b.s||"")+'</textarea></label>' +
     '</div><div style="margin-top:8px"><button class="btn sm danger" onclick="delCustom(\''+id+'\')">Excluir este livro</button></div></div>' : "";
+  const oldBack = document.querySelector(".mback"), keepScroll = oldBack && modalShownId === id ? oldBack.scrollTop : 0;
+  modalShownId = id;
   $("#modalRoot").innerHTML = '<div class="mback" onclick="if(event.target===this)closeModal()"><div class="modal">' +
    '<div class="win '+(b.type==="nf"?"c-lav":"c-pink")+'" role="dialog" aria-modal="true" aria-label="'+esc(b.t)+'"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span>Livro.exe — '+esc(id)+'</span><span class="sp"></span><button class="x" onclick="closeModal()" aria-label="Fechar">✕</button></div><div class="body">' +
     '<h3>'+esc(b.t)+'</h3><div class="sub">'+esc(b.a||"")+'</div><div class="chips">'+meta.map(m => '<span class="chip">'+esc(m)+'</span>').join("")+'</div>' +
@@ -1901,7 +1935,7 @@ function renderModal(){
     (conc ? '<div class="blk"><h4>Conceitos do mapa</h4><div class="chips">'+conc+'</div></div>' : "") +
     edit +
     '<div class="blk"><h4>Status</h4><div class="seg">'+Object.keys(STATUS).map(k => '<button aria-pressed="'+(s.status===k)+'" onclick="setStatus(\''+id+'\',\''+k+'\')">'+STATUS[k]+'</button>').join("")+'</div></div>' +
-    '<div class="blk"><h4>Progresso</h4><div class="row">Página <input class="inp" type="number" min="0" '+(b.p?'max="'+b.p+'"':"")+' style="width:96px" value="'+(s.page||0)+'" onchange="setPage(\''+id+'\',this.value)"> de '+(b.p||"?")+' <span class="dim small">· '+pct(id)+'% · tempo lido: '+days+pagesPerHour+'</span></div><div class="pbar '+(b.type==="nf"?"":"pink")+'" style="margin-top:8px"><i style="width:'+pct(id)+'%"></i></div>' +
+    '<div class="blk"><h4>Progresso</h4><div class="row">Página <input class="inp" type="number" inputmode="numeric" min="0" '+(b.p?'max="'+b.p+'"':"")+' style="width:96px" value="'+(s.page||0)+'" onchange="setPage(\''+id+'\',this.value)"> de '+(b.p||"?")+' <span class="dim small">· '+pct(id)+'% · tempo lido: '+days+pagesPerHour+'</span></div><div class="pbar '+(b.type==="nf"?"":"pink")+'" style="margin-top:8px"><i style="width:'+pct(id)+'%"></i></div>' +
       '<div class="row small" style="margin-top:10px"><label class="f">Comecei em<input class="inp" type="date" value="'+(s.started||"")+'" onchange="setDate(\''+id+'\',\'started\',this.value)"></label><label class="f">Terminei em<input class="inp" type="date" value="'+(s.finished||"")+'" onchange="setDate(\''+id+'\',\'finished\',this.value)"></label></div></div>' +
     '<div class="blk row" style="justify-content:space-between"><div><h4>Minha nota</h4><div class="stars">'+[1,2,3,4,5].map(r => '<button class="'+(s.rating>=r?"on":"")+'" onclick="setRating(\''+id+'\','+r+')" aria-label="'+r+' estrelas">★</button>').join("")+'</div></div>' +
       '<div class="row"><button class="btn '+(s.fav?"pink":"")+'" onclick="toggleFav(\''+id+'\')">♥ '+(s.fav?"Favorito":"Favoritar")+'</button><button class="btn '+(s.want?"pri":"")+'" onclick="toggleWant(\''+id+'\')">✚ '+(s.want?"Na lista Quero Ler":"Quero ler")+'</button></div></div>' +
@@ -1911,8 +1945,10 @@ function renderModal(){
       '<div class="row"><input class="inp" id="qText" style="flex:1 1 260px" placeholder="Cole ou digite um trecho marcante"><input class="inp" id="qPage" style="width:90px" placeholder="pág."><button class="btn mint" onclick="addQuote(\''+id+'\')">Adicionar</button></div></div>' +
     '<div class="pnav">'+(prev ? '<button class="btn sm" onclick="openBook(\''+prev.id+'\')">← '+esc(prev.t.slice(0,34))+'</button>' : "<span></span>")+(next ? '<button class="btn sm" onclick="openBook(\''+next.id+'\')">'+esc(next.t.slice(0,34))+' →</button>' : "<span></span>")+'</div>' +
    '</div></div></div></div>';
-  const qt = document.getElementById("qText"); if(qt) qt.addEventListener("keydown", e => { if(e.key === "Enter") addQuote(id); });
+  const qt = document.getElementById("qText"); if(qt) qt.addEventListener("keydown", e => { if(e.key === "Enter" && !e.isComposing){ e.preventDefault(); addQuote(id); } });
+  if(keepScroll) document.querySelector(".mback").scrollTop = keepScroll;   // re-desenho não pula para o topo
 }
+let modalShownId = null;
 function setNotes(id, v){ st(id).notes = v; const ns = $("#noteState"); if(ns) ns.textContent = "salvando…"; save(); }
 function stampNote(id){
   const ta = $("#noteArea"); const stamp = (ta.value && !ta.value.endsWith("\n") ? "\n" : "")+"— "+new Date().toLocaleDateString("pt-BR")+" —\n";
@@ -1920,6 +1956,7 @@ function stampNote(id){
 }
 function addQuote(id){
   const t = $("#qText").value.trim(); if(!t) return;
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();   // fecha o teclado antes de redesenhar
   st(id).quotes.push({t, p:$("#qPage").value.trim(), d:dk()}); save(); renderModal(); toast("Citação guardada ✓");
 }
 function delQuote(id, i){ if(!confirm("Remover esta citação?")) return; st(id).quotes.splice(i,1); save(); renderModal(); }
@@ -1953,7 +1990,7 @@ function renderWant(){
       '<p class="small muted" style="margin-top:0">Achou um livro que está faltando? Adicione aqui. Ele entra na sua lista Quero Ler e no fim da trilha de ficção ou de não ficção, com status, notas, nota e timer, como qualquer outro.</p>' +
       '<div class="grid g2" style="gap:10px"><label class="f span2">Título *<input class="inp" id="cT" placeholder="ex.: O Senhor dos Anéis"></label>' +
       '<label class="f">Autor<input class="inp" id="cA"></label><label class="f">Tipo<select class="inp" id="cType"><option value="f">Ficção</option><option value="nf">Não ficção</option></select></label>' +
-      '<label class="f">Páginas<input class="inp" id="cP" type="number" min="0" placeholder="~300"></label><label class="f">Ano<input class="inp" id="cY" placeholder="1954"></label>' +
+      '<label class="f">Páginas<input class="inp" id="cP" type="number" inputmode="numeric" min="0" placeholder="~300"></label><label class="f">Ano<input class="inp" id="cY" placeholder="1954"></label>' +
       '<label class="f span2">Por que quero ler<textarea class="inp" id="cS" rows="2" placeholder="indicação, tema, conexão com algum vídeo…"></textarea></label></div>' +
       '<div style="margin-top:10px"><button class="btn pri" onclick="addCustom()">+ Adicionar à biblioteca</button></div>') +
     win("Quero_ler.txt — "+want.length, "c-mint", want.length ? '<div class="blist">'+want.map(bookRow).join("")+'</div>' : '<div class="empty">Clique no <b>✚</b> de qualquer livro para montar sua lista.</div>') +
@@ -1991,11 +2028,11 @@ function renderStats(){
   $("#tab-metas").innerHTML = '<div class="grid g2">' +
     win("Metas.cfg", "c-sky",
       '<div class="grid g2" style="gap:10px">' +
-      '<label class="f">Meta diária não ficção (min)<input class="inp" type="number" min="5" max="240" value="'+S.settings.goalNF+'" onchange="setSetting(\'goalNF\',this.value,5,240)"></label>' +
-      '<label class="f">Meta diária ficção (min)<input class="inp" type="number" min="5" max="240" value="'+S.settings.goalF+'" onchange="setSetting(\'goalF\',this.value,5,240)"></label>' +
-      '<label class="f">Págs. de não ficção em 30 min<input class="inp" type="number" min="3" max="80" value="'+S.settings.ppNF+'" onchange="setSetting(\'ppNF\',this.value,3,80)"></label>' +
-      '<label class="f">Págs. de ficção em 30 min<input class="inp" type="number" min="3" max="80" value="'+S.settings.ppF+'" onchange="setSetting(\'ppF\',this.value,3,80)"></label>' +
-      '<label class="f">Meta de livros por ano<input class="inp" type="number" min="1" max="200" value="'+S.settings.yearGoal+'" onchange="setSetting(\'yearGoal\',this.value,1,200)"></label>' +
+      '<label class="f">Meta diária não ficção (min)<input class="inp" type="number" inputmode="numeric" min="5" max="240" value="'+S.settings.goalNF+'" onchange="setSetting(\'goalNF\',this.value,5,240)"></label>' +
+      '<label class="f">Meta diária ficção (min)<input class="inp" type="number" inputmode="numeric" min="5" max="240" value="'+S.settings.goalF+'" onchange="setSetting(\'goalF\',this.value,5,240)"></label>' +
+      '<label class="f">Págs. de não ficção em 30 min<input class="inp" type="number" inputmode="numeric" min="3" max="80" value="'+S.settings.ppNF+'" onchange="setSetting(\'ppNF\',this.value,3,80)"></label>' +
+      '<label class="f">Págs. de ficção em 30 min<input class="inp" type="number" inputmode="numeric" min="3" max="80" value="'+S.settings.ppF+'" onchange="setSetting(\'ppF\',this.value,3,80)"></label>' +
+      '<label class="f">Meta de livros por ano<input class="inp" type="number" inputmode="numeric" min="1" max="200" value="'+S.settings.yearGoal+'" onchange="setSetting(\'yearGoal\',this.value,1,200)"></label>' +
       '<label class="f">Som ao terminar sessão<select class="inp" onchange="S.settings.sound=this.value===\'1\';save()"><option value="1" '+(S.settings.sound?"selected":"")+'>Ligado</option><option value="0" '+(!S.settings.sound?"selected":"")+'>Desligado</option></select></label>' +
       '</div><p class="small muted" style="margin-bottom:0">Dica: depois de algumas sessões, abra um livro e veja o “ritmo ≈ págs/30 min” calculado com o seu tempo real. Ajuste aqui para a projeção ficar precisa.</p>') +
     win("Meta "+year, "c-butter",
@@ -2065,7 +2102,7 @@ setInterval(() => {
   if(dk() !== lastDay){
     // virou o dia: fecha o tempo corrente no dia anterior e recomeça a sessão
     lastDay = dk(); ["nf","f"].forEach(tr => { if(S.timer[tr].start){ commit(tr, false); } });
-    save(); if(curTab === "hoje") renderToday();
+    save(); if(curTab === "hoje" && !isEditing()) renderToday();
   }
   tickUI();
   const anyRun = S.timer.nf.start || S.timer.f.start;
